@@ -1,6 +1,74 @@
-# {{TITLE}} ({{TITLE}})
+# Monorepo Skeleton
 
-企业级健康管理平台 Monorepo，包含后端服务、管理后台、H5 移动端和微信小程序。
+企业级全栈应用 Monorepo 骨架项目，包含后端服务、管理后台、H5 移动端和微信小程序。
+
+## 使用此模板初始化项目
+
+### 方式一：使用 degit（推荐）
+
+```bash
+# 安装 degit（如果没有）
+npm install -g degit
+
+# 克隆模板到新项目目录
+degit helloljq/monorepo-skeleton my-project
+
+cd my-project
+```
+
+### 方式二：直接克隆
+
+```bash
+git clone https://github.com/helloljq/monorepo-skeleton.git my-project
+cd my-project
+
+# 删除原有 git 历史，初始化新仓库
+rm -rf .git
+git init
+```
+
+### 初始化配置
+
+克隆后需要替换项目中的占位符：
+
+| 占位符 | 说明 | 示例 |
+|--------|------|------|
+| `{{TITLE}}` | 项目名称（英文，用于目录名、包名等） | `health-platform` |
+| `{{DOMAIN}}` | 项目域名 | `example.com` |
+
+**快速替换命令：**
+
+```bash
+# macOS
+find . -type f \( -name "*.md" -o -name "*.json" -o -name "*.ts" -o -name "*.tsx" -o -name "*.js" -o -name "*.yml" -o -name "*.yaml" -o -name ".env*" \) \
+  -not -path "./node_modules/*" -not -path "./.git/*" \
+  -exec sed -i '' 's/{{TITLE}}/your-project-name/g; s/{{DOMAIN}}/your-domain.com/g' {} +
+
+# Linux
+find . -type f \( -name "*.md" -o -name "*.json" -o -name "*.ts" -o -name "*.tsx" -o -name "*.js" -o -name "*.yml" -o -name "*.yaml" -o -name ".env*" \) \
+  -not -path "./node_modules/*" -not -path "./.git/*" \
+  -exec sed -i 's/{{TITLE}}/your-project-name/g; s/{{DOMAIN}}/your-domain.com/g' {} +
+```
+
+**然后完成初始化：**
+
+```bash
+# 安装依赖
+pnpm install
+
+# 生成 Prisma Client
+pnpm --filter server prisma:generate
+
+# 配置环境变量
+cp .env.example .env
+# 编辑 .env 填入实际配置
+
+# 首次提交
+git add .
+git commit -m "chore: init project from monorepo-skeleton"
+```
+
+---
 
 ## 技术栈
 
