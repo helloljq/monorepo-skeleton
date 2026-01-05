@@ -1,0 +1,61 @@
+# 阿里云数据库部署配置
+# 部署 production 环境的 PostgreSQL 和 Redis
+#
+# 使用方法:
+#   1. 复制此文件到阿里云服务器: /docker/{{NAME}}/docker-compose.yml
+#   2. 复制 .env.example 为 .env 并填入实际密码
+#   3. 运行: docker compose up -d
+
+services:
+  # ========================================
+  # Production 环境
+  # ========================================
+  postgres-prod:
+    image: postgres:16-alpine
+    container_name: xy-postgres-prod
+    restart: unless-stopped
+    ports:
+      - "5420:5432"
+    environment:
+      POSTGRES_DB: xy_prod
+      POSTGRES_USER: xy_prod
+      POSTGRES_PASSWORD: ${PG_PROD_PASSWORD}
+      TZ: Asia/Shanghai
+    volumes:
+      - pg_prod_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U xy_prod -d xy_prod"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    deploy:
+      resources:
+        limits:
+          memory: 2G
+
+  redis-prod:
+    image: redis:7-alpine
+    container_name: xy-redis-prod
+    restart: unless-stopped
+    ports:
+      - "6320:6379"
+    environment:
+      TZ: Asia/Shanghai
+    command: redis-server --requirepass ${REDIS_PROD_PASSWORD} --appendonly yes --maxmemory 512mb --maxmemory-policy allkeys-lru
+    volumes:
+      - redis_prod_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PROD_PASSWORD}", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+
+volumes:
+  pg_prod_data:
+    name: xy-pg-prod-data
+  redis_prod_data:
+    name: xy-redis-prod-data

@@ -1,0 +1,96 @@
+# NAS 数据库部署配置
+# 部署 dev 和 staging 环境的 PostgreSQL 和 Redis
+#
+# 使用方法:
+#   1. 复制此文件到 NAS: /docker/{{NAME}}/docker-compose.yml
+#   2. 复制 .env.example 为 .env 并填入实际密码
+#   3. 运行: docker compose up -d
+
+services:
+  # ========================================
+  # Dev 环境
+  # ========================================
+  postgres-dev:
+    image: postgres:16-alpine
+    container_name: xy-postgres-dev
+    restart: unless-stopped
+    ports:
+      - "5400:5432"
+    environment:
+      POSTGRES_DB: xy_dev
+      POSTGRES_USER: xy_dev
+      POSTGRES_PASSWORD: ${PG_DEV_PASSWORD}
+      TZ: Asia/Shanghai
+    volumes:
+      - pg_dev_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U xy_dev -d xy_dev"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis-dev:
+    image: redis:7-alpine
+    container_name: xy-redis-dev
+    restart: unless-stopped
+    ports:
+      - "6300:6379"
+    environment:
+      TZ: Asia/Shanghai
+    command: redis-server --requirepass ${REDIS_DEV_PASSWORD} --appendonly yes
+    volumes:
+      - redis_dev_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "${REDIS_DEV_PASSWORD}", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ========================================
+  # Staging 环境
+  # ========================================
+  postgres-staging:
+    image: postgres:16-alpine
+    container_name: xy-postgres-staging
+    restart: unless-stopped
+    ports:
+      - "5410:5432"
+    environment:
+      POSTGRES_DB: xy_staging
+      POSTGRES_USER: xy_staging
+      POSTGRES_PASSWORD: ${PG_STAGING_PASSWORD}
+      TZ: Asia/Shanghai
+    volumes:
+      - pg_staging_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U xy_staging -d xy_staging"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis-staging:
+    image: redis:7-alpine
+    container_name: xy-redis-staging
+    restart: unless-stopped
+    ports:
+      - "6310:6379"
+    environment:
+      TZ: Asia/Shanghai
+    command: redis-server --requirepass ${REDIS_STAGING_PASSWORD} --appendonly yes
+    volumes:
+      - redis_staging_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "${REDIS_STAGING_PASSWORD}", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  pg_dev_data:
+    name: xy-pg-dev-data
+  pg_staging_data:
+    name: xy-pg-staging-data
+  redis_dev_data:
+    name: xy-redis-dev-data
+  redis_staging_data:
+    name: xy-redis-staging-data

@@ -1,0 +1,256 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model AuditLog {
+  id          Int      @id @default(autoincrement())
+  action      String
+  operation   String
+  entityType  String
+  entityId    String
+  actorUserId Int?
+  ip          String?
+  userAgent   String?
+  requestId   String?
+  before      Json?
+  after       Json?
+  createdAt   DateTime @default(now())
+  User        User?    @relation(fields: [actorUserId], references: [id])
+
+  @@index([actorUserId, createdAt])
+  @@index([createdAt])
+  @@index([entityType, entityId, createdAt])
+}
+
+model ConfigHistory {
+  id          Int              @id @default(autoincrement())
+  configId    Int
+  version     Int
+  value       Json
+  configHash  String           @db.VarChar(64)
+  changeType  ConfigChangeType
+  changeNote  String?          @db.VarChar(500)
+  changedById Int?
+  createdAt   DateTime         @default(now())
+  User        User?            @relation(fields: [changedById], references: [id])
+  ConfigItem  ConfigItem       @relation(fields: [configId], references: [id])
+
+  @@index([configId])
+  @@index([configId, version])
+}
+
+model ConfigItem {
+  id              Int             @id @default(autoincrement())
+  namespaceId     Int
+  key             String          @db.VarChar(100)
+  value           Json
+  valueType       ConfigValueType @default(JSON)
+  description     String?         @db.VarChar(500)
+  isEncrypted     Boolean         @default(false)
+  isPublic        Boolean         @default(false)
+  jsonSchema      Json?
+  version         Int             @default(1)
+  configHash      String          @db.VarChar(64)
+  isEnabled       Boolean         @default(true)
+  deletedAt       DateTime?
+  deletedById     Int?
+  deleteReason    String?         @db.VarChar(500)
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+  ConfigHistory   ConfigHistory[]
+  User            User?           @relation(fields: [deletedById], references: [id])
+  ConfigNamespace ConfigNamespace @relation(fields: [namespaceId], references: [id])
+
+  @@unique([namespaceId, key])
+  @@index([namespaceId])
+  @@index([namespaceId, isEnabled])
+}
+
+model ConfigNamespace {
+  id           Int          @id @default(autoincrement())
+  name         String       @unique @db.VarChar(50)
+  displayName  String       @db.VarChar(100)
+  description  String?      @db.VarChar(500)
+  isEnabled    Boolean      @default(true)
+  deletedAt    DateTime?
+  deletedById  Int?
+  deleteReason String?      @db.VarChar(500)
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+  ConfigItem   ConfigItem[]
+  User         User?        @relation(fields: [deletedById], references: [id])
+
+  @@index([isEnabled])
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model Dictionary {
+  id           Int       @id @default(autoincrement())
+  type         String    @db.VarChar(50)
+  key          String    @db.VarChar(100)
+  value        Json
+  label        String    @db.VarChar(100)
+  description  String?   @db.VarChar(500)
+  sort         Int       @default(0)
+  isEnabled    Boolean   @default(true)
+  deletedAt    DateTime?
+  deletedById  Int?
+  deleteReason String?   @db.VarChar(500)
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  version      String?   @db.VarChar(20)
+  configHash   String?   @db.VarChar(64)
+  User         User?     @relation(fields: [deletedById], references: [id])
+
+  @@unique([type, key])
+  @@index([type])
+  @@index([type, isEnabled])
+}
+
+model Permission {
+  id             Int              @id @default(autoincrement())
+  code           String           @unique @db.VarChar(100)
+  name           String           @db.VarChar(100)
+  description    String?          @db.VarChar(500)
+  resource       String           @db.VarChar(50)
+  action         String           @db.VarChar(50)
+  module         String?          @db.VarChar(50)
+  isEnabled      Boolean          @default(true)
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+  RolePermission RolePermission[]
+
+  @@index([module])
+  @@index([resource, action])
+}
+
+model Role {
+  id             Int              @id @default(autoincrement())
+  code           String           @unique @db.VarChar(50)
+  name           String           @db.VarChar(100)
+  description    String?          @db.VarChar(500)
+  type           RoleType         @default(CUSTOM)
+  isEnabled      Boolean          @default(true)
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+  deletedAt      DateTime?
+  deletedById    Int?
+  deleteReason   String?          @db.VarChar(500)
+  User           User?            @relation(fields: [deletedById], references: [id])
+  RolePermission RolePermission[]
+  UserRole       UserRole[]
+}
+
+model RolePermission {
+  id           Int        @id @default(autoincrement())
+  roleId       Int
+  permissionId Int
+  grantedBy    Int?
+  grantedAt    DateTime   @default(now())
+  Permission   Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+  Role         Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+
+  @@unique([roleId, permissionId])
+  @@index([permissionId])
+  @@index([roleId])
+}
+
+model User {
+  id                                Int               @id @default(autoincrement())
+  email                             String
+  name                              String?
+  password                          String
+  deletedAt                         DateTime?
+  createdAt                         DateTime          @default(now())
+  updatedAt                         DateTime          @updatedAt
+  deletedById                       Int?
+  deleteReason                      String?
+  avatar                            String?           @db.VarChar(500)
+  status                            UserStatus        @default(ACTIVE)
+  AuditLog                          AuditLog[]
+  ConfigHistory                     ConfigHistory[]
+  ConfigItem                        ConfigItem[]
+  ConfigNamespace                   ConfigNamespace[]
+  Dictionary                        Dictionary[]
+  Role                              Role[]
+  User                              User?             @relation("UserToUser", fields: [deletedById], references: [id])
+  other_User                        User[]            @relation("UserToUser")
+  UserIdentity                      UserIdentity[]
+  UserRole_UserRole_grantedByToUser UserRole[]        @relation("UserRole_grantedByToUser")
+  UserRole_UserRole_userIdToUser    UserRole[]        @relation("UserRole_userIdToUser")
+
+  @@unique([email, deletedAt])
+}
+
+model UserIdentity {
+  id            Int              @id @default(autoincrement())
+  userId        Int
+  provider      IdentityProvider
+  providerId    String           @db.VarChar(255)
+  credential    String?          @db.VarChar(500)
+  credentialExp DateTime?
+  metadata      Json?
+  verified      Boolean          @default(false)
+  verifiedAt    DateTime?
+  createdAt     DateTime         @default(now())
+  updatedAt     DateTime         @updatedAt
+  User          User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerId])
+  @@index([userId])
+}
+
+model UserRole {
+  id                            Int       @id @default(autoincrement())
+  userId                        Int
+  roleId                        Int
+  grantedBy                     Int?
+  grantedAt                     DateTime  @default(now())
+  expiresAt                     DateTime?
+  User_UserRole_grantedByToUser User?     @relation("UserRole_grantedByToUser", fields: [grantedBy], references: [id])
+  Role                          Role      @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  User_UserRole_userIdToUser    User      @relation("UserRole_userIdToUser", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, roleId])
+  @@index([roleId])
+  @@index([userId])
+}
+
+enum ConfigChangeType {
+  CREATE
+  UPDATE
+  DELETE
+  ROLLBACK
+}
+
+enum ConfigValueType {
+  JSON
+  STRING
+  NUMBER
+  BOOLEAN
+}
+
+enum IdentityProvider {
+  EMAIL
+  PHONE
+  WECHAT_OPEN
+  WECHAT_UNION
+  WECHAT_MINI
+  WECHAT_MP
+}
+
+enum RoleType {
+  SYSTEM
+  CUSTOM
+}
+
+enum UserStatus {
+  ACTIVE
+  DISABLED
+  PENDING
+}

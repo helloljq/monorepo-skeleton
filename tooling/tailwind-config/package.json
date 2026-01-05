@@ -1,0 +1,7 @@
+{
+  "name": "@{{NAME}}/tailwind-config",
+  "version": "0.0.1",
+  "private": true,
+  "description": "共享 Tailwind CSS 配置",
+  "main": "index.js"
+}

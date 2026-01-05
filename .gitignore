@@ -1,0 +1,72 @@
+# Dependencies
+node_modules/
+.pnpm-store/
+
+# Build outputs
+dist/
+build/
+.next/
+out/
+*.tsbuildinfo
+vite.config.js
+vite.config.d.ts
+
+# Turbo
+.turbo/
+
+# Environment (各 app 独立管理)
+# 忽略所有实际环境配置文件
+.env
+.env.local
+.env.development
+.env.staging
+.env.production
+.env.*.local
+
+# 保留模板文件
+!.env.example
+
+# Secrets (密钥文件绝对不能提交)
+*.pem
+*.key
+private.key
+*.p12
+*.pfx
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+.DS_Store
+
+# Logs
+*.log
+npm-debug.log*
+pnpm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Testing
+coverage/
+.nyc_output/
+playwright-report/
+test-results/
+
+# Prisma
+prisma/*.db
+prisma/*.db-journal
+
+# OS
+Thumbs.db
+
+# Temporary
+tmp/
+temp/
+*.tmp
+*.temp
+
+# Miniprogram
+apps/miniprogram/dist/
+apps/miniprogram/.swc/
+.playwright-mcp/
