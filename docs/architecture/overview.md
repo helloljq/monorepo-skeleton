@@ -26,19 +26,19 @@
 ### Server (后端服务)
 
 - 技术栈: NestJS 11 + Prisma + PostgreSQL + Redis
-- 端口: 8100 (dev), 8110 (staging), 8120 (prod)
+- 端口: {{PORT_SERVER_DEV}} (dev), {{PORT_SERVER_STAGING}} (staging), {{PORT_SERVER_PROD}} (prod)
 - 职责: 提供 RESTful API、WebSocket 服务
 
 ### Admin Web (管理后台)
 
 - 技术栈: React 19 + Vite + shadcn/ui + TanStack Query
-- 端口: 3100 (dev), 3110 (staging), 3120 (prod)
+- 端口: {{PORT_ADMIN_DEV}} (dev), {{PORT_ADMIN_STAGING}} (staging), {{PORT_ADMIN_PROD}} (prod)
 - 职责: 系统管理、配置管理、用户管理
 
 ### WWW Web (移动端)
 
 - 技术栈: React 19 + Vite + Tailwind CSS
-- 端口: 3200 (dev), 3210 (staging), 3220 (prod)
+- 端口: {{PORT_WWW_DEV}} (dev), {{PORT_WWW_STAGING}} (staging), {{PORT_WWW_PROD}} (prod)
 - 职责: 用户端移动网页
 
 ### Miniprogram (小程序)

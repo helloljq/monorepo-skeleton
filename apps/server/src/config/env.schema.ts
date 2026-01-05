@@ -21,7 +21,7 @@ export const envSchema = z
     NODE_ENV: z
       .enum(["development", "production", "test"])
       .default("development"),
-    PORT: z.coerce.number().default(8100),
+    PORT: z.coerce.number().default({{PORT_SERVER_DEV}}),
     BODY_LIMIT: z.string().default("1mb"),
 
     // CORS (comma-separated list of allowed origins)
@@ -30,7 +30,7 @@ export const envSchema = z
     CORS_ORIGINS: z
       .string()
       .default(
-        "http://localhost:3000,http://localhost:3001,http://localhost:8100,https://admin-dev.{{DOMAIN}},https://www-dev.{{DOMAIN}}",
+        "http://localhost:{{PORT_ADMIN_DEV}},http://localhost:{{PORT_WWW_DEV}},http://localhost:{{PORT_SERVER_DEV}},https://admin-dev.{{DOMAIN}},https://www-dev.{{DOMAIN}}",
       ),
 
     // Database (PostgreSQL)

@@ -13,7 +13,7 @@
 │  │              docker-compose.yml (deploy/dev/)               │ │
 │  │  ┌─────────────┐  ┌─────────────┐                          │ │
 │  │  │ PostgreSQL  │  │    Redis    │    ← 仅数据库服务         │ │
-│  │  │    :5400    │  │    :6300    │    ← 应用代码本地运行     │ │
+│  │  │    :{{PORT_POSTGRES_DEV}}    │  │    :{{PORT_REDIS_DEV}}    │    ← 应用代码本地运行     │ │
 │  │  └─────────────┘  └─────────────┘                          │ │
 │  └─────────────────────────────────────────────────────────────┘ │
 └──────────────────────────────────────────────────────────────────┘
@@ -25,11 +25,11 @@
 │  │      staging (xy-staging)      │ │       prod (xy-prod)    │ │
 │  │   docker-compose.yml           │ │   docker-compose.yml    │ │
 │  ├─────────────────────────────────┤ ├─────────────────────────┤ │
-│  │  PostgreSQL        :5410       │ │  PostgreSQL      :5420  │ │
-│  │  Redis             :6310       │ │  Redis           :6320  │ │
-│  │  Server            :8110       │ │  Server          :8120  │ │
-│  │  Admin-Web         :3110       │ │  Admin-Web       :3120  │ │
-│  │  WWW-Web           :3210       │ │  WWW-Web         :3220  │ │
+│  │  PostgreSQL        :{{PORT_POSTGRES_STAGING}}       │ │  PostgreSQL      :{{PORT_POSTGRES_PROD}}  │ │
+│  │  Redis             :{{PORT_REDIS_STAGING}}       │ │  Redis           :{{PORT_REDIS_PROD}}  │ │
+│  │  Server            :{{PORT_SERVER_STAGING}}       │ │  Server          :{{PORT_SERVER_PROD}}  │ │
+│  │  Admin-Web         :{{PORT_ADMIN_STAGING}}       │ │  Admin-Web       :{{PORT_ADMIN_PROD}}  │ │
+│  │  WWW-Web           :{{PORT_WWW_STAGING}}       │ │  WWW-Web         :{{PORT_WWW_PROD}}  │ │
 │  │                                │ │                         │ │
 │  │  network: xy-staging-net       │ │  network: xy-prod-net   │ │
 │  │  volumes: xy-staging-*         │ │  volumes: xy-prod-*     │ │
@@ -54,27 +54,26 @@
 
 | 服务 | dev | staging | prod | 容器内端口 |
 |------|-----|---------|------|-----------|
-| PostgreSQL | 5400 | 5410 | 5420 | 5432 |
-| Redis | 6300 | 6310 | 6320 | 6379 |
-| Server API | 8100 | 8110 | 8120 | 8100 |
-| Admin Web | 3100 | 3110 | 3120 | 80 |
-| WWW Web | 3200 | 3210 | 3220 | 80 |
+| PostgreSQL | {{PORT_POSTGRES_DEV}} | {{PORT_POSTGRES_STAGING}} | {{PORT_POSTGRES_PROD}} | 5432 |
+| Redis | {{PORT_REDIS_DEV}} | {{PORT_REDIS_STAGING}} | {{PORT_REDIS_PROD}} | 6379 |
+| Server API | {{PORT_SERVER_DEV}} | {{PORT_SERVER_STAGING}} | {{PORT_SERVER_PROD}} | 8100 |
+| Admin Web | {{PORT_ADMIN_DEV}} | {{PORT_ADMIN_STAGING}} | {{PORT_ADMIN_PROD}} | 80 |
+| WWW Web | {{PORT_WWW_DEV}} | {{PORT_WWW_STAGING}} | {{PORT_WWW_PROD}} | 80 |
 
 ### 2.2 端口设计说明
 
 ```
-端口规则：避免标准端口（5432/6379/3000/8000），防止与其他项目冲突
+端口规则：PPESS 格式（项目编号 + 环境 + 服务）
+  PP: 项目编号 (17-99)
+  E:  环境 (0=dev, 1=staging, 2=prod)
+  SS: 服务 (00=Server, 01=Admin, 02=WWW, 10=Postgres, 11=Redis)
 
-后端 API:    81xx  (8100 / 8110 / 8120)
-Admin 前端:  31xx  (3100 / 3110 / 3120)
-WWW 前端:    32xx  (3200 / 3210 / 3220)
-PostgreSQL:  54xx  (5400 / 5410 / 5420)
-Redis:       63xx  (6300 / 6310 / 6320)
-
-环境编号：
-  x0 = dev
-  x1 = staging
-  x2 = prod
+示例 (项目编号=17):
+  Server API:   17000 / 17100 / 17200
+  Admin 前端:   17001 / 17101 / 17201
+  WWW 前端:     17002 / 17102 / 17202
+  PostgreSQL:   17010 / 17110 / 17210
+  Redis:        17011 / 17111 / 17211
 ```
 
 ---
@@ -119,7 +118,7 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?required}
       TZ: Asia/Shanghai
     ports:
-      - "5400:5432"
+      - "{{PORT_POSTGRES_DEV}}:5432"
     volumes:
       - xy-dev-postgres:/var/lib/postgresql/data
     healthcheck:
@@ -138,7 +137,7 @@ services:
       REDISCLI_AUTH: ${REDIS_PASSWORD}  # 用于 healthcheck
       TZ: Asia/Shanghai
     ports:
-      - "6300:6379"
+      - "{{PORT_REDIS_DEV}}:6379"
     volumes:
       - xy-dev-redis:/data
     healthcheck:
@@ -191,7 +190,7 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?required}
       TZ: Asia/Shanghai
     ports:
-      - "5410:5432"
+      - "{{PORT_POSTGRES_STAGING}}:5432"
     volumes:
       - xy-staging-postgres:/var/lib/postgresql/data
     healthcheck:
@@ -221,7 +220,7 @@ services:
       REDISCLI_AUTH: ${REDIS_PASSWORD}
       TZ: Asia/Shanghai
     ports:
-      - "6310:6379"
+      - "{{PORT_REDIS_STAGING}}:6379"
     volumes:
       - xy-staging-redis:/data
     healthcheck:
@@ -262,7 +261,7 @@ services:
       CORS_ORIGINS: ${CORS_ORIGINS:-}
       TZ: Asia/Shanghai
     ports:
-      - "8110:8100"
+      - "{{PORT_SERVER_STAGING}}:8100"
     healthcheck:
       test: ["CMD", "node", "-e", "require('http').get('http://localhost:8100/health', (r) => process.exit(r.statusCode === 200 ? 0 : 1))"]
       interval: 30s
@@ -292,7 +291,7 @@ services:
     environment:
       TZ: Asia/Shanghai
     ports:
-      - "3110:80"
+      - "{{PORT_ADMIN_STAGING}}:80"
     healthcheck:
       test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost/ || exit 1"]
       interval: 30s
@@ -316,7 +315,7 @@ services:
     environment:
       TZ: Asia/Shanghai
     ports:
-      - "3210:80"
+      - "{{PORT_WWW_STAGING}}:80"
     healthcheck:
       test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost/ || exit 1"]
       interval: 30s
@@ -362,7 +361,7 @@ services:
       TZ: Asia/Shanghai
     ports:
       # 仅绑定本机，外部访问需 SSH 隧道
-      - "127.0.0.1:5420:5432"
+      - "127.0.0.1:{{PORT_POSTGRES_PROD}}:5432"
     volumes:
       - xy-prod-postgres:/var/lib/postgresql/data
     healthcheck:
@@ -400,7 +399,7 @@ services:
       TZ: Asia/Shanghai
     ports:
       # 仅绑定本机，外部访问需 SSH 隧道
-      - "127.0.0.1:6320:6379"
+      - "127.0.0.1:{{PORT_REDIS_PROD}}:6379"
     volumes:
       - xy-prod-redis:/data
     healthcheck:
@@ -443,7 +442,7 @@ services:
       CORS_ORIGINS: ${CORS_ORIGINS:-}
       TZ: Asia/Shanghai
     ports:
-      - "8120:8100"
+      - "{{PORT_SERVER_PROD}}:8100"
     healthcheck:
       test: ["CMD", "node", "-e", "require('http').get('http://localhost:8100/health', (r) => process.exit(r.statusCode === 200 ? 0 : 1))"]
       interval: 30s
@@ -475,7 +474,7 @@ services:
     environment:
       TZ: Asia/Shanghai
     ports:
-      - "3120:80"
+      - "{{PORT_ADMIN_PROD}}:80"
     healthcheck:
       test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost/ || exit 1"]
       interval: 30s
@@ -499,7 +498,7 @@ services:
     environment:
       TZ: Asia/Shanghai
     ports:
-      - "3220:80"
+      - "{{PORT_WWW_PROD}}:80"
     healthcheck:
       test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost/ || exit 1"]
       interval: 30s
@@ -557,7 +556,7 @@ staging 和 prod 运行在同一物理机，通过以下方式完全隔离：
 │  │  └─────────────┘       │    │  └─────────────┘       │    │
 │  └─────────────────────────┘    └─────────────────────────┘    │
 │           ↓                              ↓                      │
-│       :5410/:6310/:8110              :5420/:6320/:8120          │
+│       :{{PORT_POSTGRES_STAGING}}/:{{PORT_REDIS_STAGING}}/:{{PORT_SERVER_STAGING}}              :{{PORT_POSTGRES_PROD}}/:{{PORT_REDIS_PROD}}/:{{PORT_SERVER_PROD}}          │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
@@ -589,8 +588,8 @@ docker compose logs -f
 
 # 5. 配置应用连接
 # 在 apps/server/.env 中设置：
-# DATABASE_URL="postgresql://xiaoyue:密码@localhost:5400/xiaoyue_dev"
-# REDIS_URL="redis://:密码@localhost:6300/0"
+# DATABASE_URL="postgresql://{{NAME}}:密码@localhost:{{PORT_POSTGRES_DEV}}/{{NAME}}_dev"
+# REDIS_URL="redis://:密码@localhost:{{PORT_REDIS_DEV}}/0"
 ```
 
 ### 6.2 Staging/Prod 环境（物理机）
@@ -838,7 +837,7 @@ docker network inspect xy-staging-net
 ### 11.2 网络安全
 
 - **【强制】** 生产数据库端口绑定 127.0.0.1，不暴露公网
-- **【强制】** 外部运维通过 SSH 隧道访问：`ssh -L 5420:127.0.0.1:5420 user@server`
+- **【强制】** 外部运维通过 SSH 隧道访问：`ssh -L {{PORT_POSTGRES_PROD}}:127.0.0.1:{{PORT_POSTGRES_PROD}} user@server`
 - **【推荐】** 使用防火墙限制可访问 IP
 - **【推荐】** 生产环境使用 SSL/TLS 加密
 

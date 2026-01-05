@@ -3,16 +3,25 @@
 # Monorepo 项目初始化脚本
 # =============================================================================
 # 使用方法:
-#   ./scripts/init-project.sh <NAME> <TITLE> <DOMAIN>
+#   ./scripts/init-project.sh <NAME> <TITLE> <DOMAIN> <PROJECT_NUM>
 #
 # 参数:
-#   NAME   - 项目标识（小写字母+数字，用于包名、容器名、数据库名）
-#   TITLE  - 项目显示名称（用于文档和 UI）
-#   DOMAIN - 项目域名
+#   NAME        - 项目标识（小写字母+数字，用于包名、容器名、数据库名）
+#   TITLE       - 项目显示名称（用于文档和 UI）
+#   DOMAIN      - 项目域名
+#   PROJECT_NUM - 项目编号（17-99），用于端口规划
+#
+# 端口规划（PPESS 格式）:
+#   端口号 = 项目编号(2位) + 环境(1位) + 服务(2位)
+#   - 环境: 0=dev, 1=staging, 2=prod
+#   - 服务: 00=Server, 01=Admin, 02=WWW, 10=PostgreSQL, 11=Redis
 #
 # 示例:
-#   ./scripts/init-project.sh i54kb "54KB 工具站" 54kb.com
-#   ./scripts/init-project.sh myapp "我的应用" myapp.com
+#   ./scripts/init-project.sh i54kb "54KB 工具站" i.54kb.com 17
+#   # 端口: Server=17000, Admin=17001, WWW=17002, PG=17010, Redis=17011
+#
+#   ./scripts/init-project.sh myapp "我的应用" myapp.com 18
+#   # 端口: Server=18000, Admin=18001, WWW=18002, PG=18010, Redis=18011
 # =============================================================================
 
 set -e
@@ -42,24 +51,32 @@ log_error() {
 }
 
 # 检查参数
-if [ "$#" -ne 3 ]; then
+if [ "$#" -ne 4 ]; then
     log_error "参数数量不正确"
     echo ""
-    echo "使用方法: $0 <NAME> <TITLE> <DOMAIN>"
+    echo "使用方法: $0 <NAME> <TITLE> <DOMAIN> <PROJECT_NUM>"
     echo ""
     echo "参数说明:"
-    echo "  NAME   - 项目标识（小写字母+数字，用于包名、容器名、数据库名）"
-    echo "  TITLE  - 项目显示名称（用于文档和 UI）"
-    echo "  DOMAIN - 项目域名"
+    echo "  NAME        - 项目标识（小写字母+数字，用于包名、容器名、数据库名）"
+    echo "  TITLE       - 项目显示名称（用于文档和 UI）"
+    echo "  DOMAIN      - 项目域名"
+    echo "  PROJECT_NUM - 项目编号（17-99），用于端口规划"
+    echo ""
+    echo "端口规划（PPESS 格式）:"
+    echo "  端口号 = 项目编号(PP) + 环境(E) + 服务(SS)"
+    echo "  环境: 0=dev, 1=staging, 2=prod"
+    echo "  服务: 00=Server, 01=Admin, 02=WWW, 10=PostgreSQL, 11=Redis"
     echo ""
     echo "示例:"
-    echo "  $0 i54kb \"54KB 工具站\" 54kb.com"
+    echo "  $0 i54kb \"54KB 工具站\" i.54kb.com 17"
+    echo "  # 端口: Server=17000, Admin=17001, WWW=17002, PG=17010, Redis=17011"
     exit 1
 fi
 
 NAME="$1"
 TITLE="$2"
 DOMAIN="$3"
+PROJECT_NUM="$4"
 
 # 验证 NAME 格式（小写字母开头，只能包含小写字母和数字）
 if ! [[ "$NAME" =~ ^[a-z][a-z0-9]*$ ]]; then
@@ -74,14 +91,56 @@ if ! [[ "$DOMAIN" =~ ^[a-zA-Z0-9]([a-zA-Z0-9-]*[a-zA-Z0-9])?(\.[a-zA-Z0-9]([a-zA
     exit 1
 fi
 
+# 验证 PROJECT_NUM 格式（17-99 的整数）
+if ! [[ "$PROJECT_NUM" =~ ^[0-9]+$ ]] || [ "$PROJECT_NUM" -lt 17 ] || [ "$PROJECT_NUM" -gt 99 ]; then
+    log_error "PROJECT_NUM 格式不正确: '$PROJECT_NUM'"
+    echo "PROJECT_NUM 必须是 17-99 之间的整数"
+    exit 1
+fi
+
+# 计算所有端口
+# Dev 环境 (E=0)
+PORT_SERVER_DEV=$((PROJECT_NUM * 1000 + 0))
+PORT_ADMIN_DEV=$((PROJECT_NUM * 1000 + 1))
+PORT_WWW_DEV=$((PROJECT_NUM * 1000 + 2))
+PORT_POSTGRES_DEV=$((PROJECT_NUM * 1000 + 10))
+PORT_REDIS_DEV=$((PROJECT_NUM * 1000 + 11))
+
+# Staging 环境 (E=1)
+PORT_SERVER_STAGING=$((PROJECT_NUM * 1000 + 100))
+PORT_ADMIN_STAGING=$((PROJECT_NUM * 1000 + 101))
+PORT_WWW_STAGING=$((PROJECT_NUM * 1000 + 102))
+PORT_POSTGRES_STAGING=$((PROJECT_NUM * 1000 + 110))
+PORT_REDIS_STAGING=$((PROJECT_NUM * 1000 + 111))
+
+# Prod 环境 (E=2)
+PORT_SERVER_PROD=$((PROJECT_NUM * 1000 + 200))
+PORT_ADMIN_PROD=$((PROJECT_NUM * 1000 + 201))
+PORT_WWW_PROD=$((PROJECT_NUM * 1000 + 202))
+PORT_POSTGRES_PROD=$((PROJECT_NUM * 1000 + 210))
+PORT_REDIS_PROD=$((PROJECT_NUM * 1000 + 211))
+
 echo ""
 echo "=============================================="
 echo "  Monorepo 项目初始化"
 echo "=============================================="
 echo ""
-echo "  NAME:   $NAME"
-echo "  TITLE:  $TITLE"
-echo "  DOMAIN: $DOMAIN"
+echo "  基本配置:"
+echo "    NAME:        $NAME"
+echo "    TITLE:       $TITLE"
+echo "    DOMAIN:      $DOMAIN"
+echo "    PROJECT_NUM: $PROJECT_NUM"
+echo ""
+echo "  端口规划 (PPESS 格式):"
+echo "    ┌────────────┬───────┬─────────┬───────┐"
+echo "    │ 服务       │ dev   │ staging │ prod  │"
+echo "    ├────────────┼───────┼─────────┼───────┤"
+echo "    │ Server     │ $PORT_SERVER_DEV │ $PORT_SERVER_STAGING   │ $PORT_SERVER_PROD │"
+echo "    │ Admin      │ $PORT_ADMIN_DEV │ $PORT_ADMIN_STAGING   │ $PORT_ADMIN_PROD │"
+echo "    │ WWW        │ $PORT_WWW_DEV │ $PORT_WWW_STAGING   │ $PORT_WWW_PROD │"
+echo "    │ PostgreSQL │ $PORT_POSTGRES_DEV │ $PORT_POSTGRES_STAGING   │ $PORT_POSTGRES_PROD │"
+echo "    │ Redis      │ $PORT_REDIS_DEV │ $PORT_REDIS_STAGING   │ $PORT_REDIS_PROD │"
+echo "    └────────────┴───────┴─────────┴───────┘"
 echo ""
 echo "=============================================="
 echo ""
@@ -121,6 +180,22 @@ xargs -0 perl -i -pe "
     s/\{\{NAME\}\}/$NAME/g;
     s/\{\{TITLE\}\}/$TITLE/g;
     s/\{\{DOMAIN\}\}/$DOMAIN/g;
+    s/\{\{PROJECT_NUM\}\}/$PROJECT_NUM/g;
+    s/\{\{PORT_SERVER_DEV\}\}/$PORT_SERVER_DEV/g;
+    s/\{\{PORT_ADMIN_DEV\}\}/$PORT_ADMIN_DEV/g;
+    s/\{\{PORT_WWW_DEV\}\}/$PORT_WWW_DEV/g;
+    s/\{\{PORT_POSTGRES_DEV\}\}/$PORT_POSTGRES_DEV/g;
+    s/\{\{PORT_REDIS_DEV\}\}/$PORT_REDIS_DEV/g;
+    s/\{\{PORT_SERVER_STAGING\}\}/$PORT_SERVER_STAGING/g;
+    s/\{\{PORT_ADMIN_STAGING\}\}/$PORT_ADMIN_STAGING/g;
+    s/\{\{PORT_WWW_STAGING\}\}/$PORT_WWW_STAGING/g;
+    s/\{\{PORT_POSTGRES_STAGING\}\}/$PORT_POSTGRES_STAGING/g;
+    s/\{\{PORT_REDIS_STAGING\}\}/$PORT_REDIS_STAGING/g;
+    s/\{\{PORT_SERVER_PROD\}\}/$PORT_SERVER_PROD/g;
+    s/\{\{PORT_ADMIN_PROD\}\}/$PORT_ADMIN_PROD/g;
+    s/\{\{PORT_WWW_PROD\}\}/$PORT_WWW_PROD/g;
+    s/\{\{PORT_POSTGRES_PROD\}\}/$PORT_POSTGRES_PROD/g;
+    s/\{\{PORT_REDIS_PROD\}\}/$PORT_REDIS_PROD/g;
 "
 
 log_success "占位符替换完成"
@@ -162,9 +237,9 @@ pnpm dev:all
 \`\`\`
 $NAME/
 ├── apps/
-│   ├── server/          # NestJS 后端 (端口 8100)
-│   ├── admin-web/       # React 管理后台 (端口 3100)
-│   ├── www-web/         # WWW 移动端 (端口 3200)
+│   ├── server/          # NestJS 后端 (端口 $PORT_SERVER_DEV)
+│   ├── admin-web/       # React 管理后台 (端口 $PORT_ADMIN_DEV)
+│   ├── www-web/         # WWW 移动端 (端口 $PORT_WWW_DEV)
 │   └── miniprogram/     # 微信小程序 (Taro)
 ├── packages/
 │   ├── shared-types/    # 共享 TS 类型
@@ -173,6 +248,16 @@ $NAME/
 ├── deploy/              # 部署配置
 └── docs/                # 项目文档
 \`\`\`
+
+## 端口规划
+
+| 服务       | dev   | staging | prod  |
+|------------|-------|---------|-------|
+| Server     | $PORT_SERVER_DEV | $PORT_SERVER_STAGING   | $PORT_SERVER_PROD |
+| Admin      | $PORT_ADMIN_DEV | $PORT_ADMIN_STAGING   | $PORT_ADMIN_PROD |
+| WWW        | $PORT_WWW_DEV | $PORT_WWW_STAGING   | $PORT_WWW_PROD |
+| PostgreSQL | $PORT_POSTGRES_DEV | $PORT_POSTGRES_STAGING   | $PORT_POSTGRES_PROD |
+| Redis      | $PORT_REDIS_DEV | $PORT_REDIS_STAGING   | $PORT_REDIS_PROD |
 
 ## 文档
 

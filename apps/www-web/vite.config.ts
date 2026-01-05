@@ -21,7 +21,7 @@ export default defineConfig({
   },
   server: {
     host: true,
-    port: 3200,
+    port: {{PORT_WWW_DEV}},
     strictPort: true,
     allowedHosts: ['www-dev.{{DOMAIN}}'],
     proxy: {

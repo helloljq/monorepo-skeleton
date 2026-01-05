@@ -75,10 +75,10 @@ pnpm dev
 
 | 服务 | 地址 | 说明 |
 |------|------|------|
-| Server API | http://localhost:8100/health | 应返回 `{"status":"ok"}` |
-| Server Swagger | http://localhost:8100/api | API 文档 |
-| Admin Web | http://localhost:3100 | 管理后台 |
-| WWW Web | http://localhost:3200 | C 端 H5 |
+| Server API | http://localhost:{{PORT_SERVER_DEV}}/health | 应返回 `{"status":"ok"}` |
+| Server Swagger | http://localhost:{{PORT_SERVER_DEV}}/api | API 文档 |
+| Admin Web | http://localhost:{{PORT_ADMIN_DEV}} | 管理后台 |
+| WWW Web | http://localhost:{{PORT_WWW_DEV}} | C 端 H5 |
 
 ### 停止服务
 
@@ -93,11 +93,11 @@ cd deploy/dev && docker compose down
 
 | 服务 | 端口 |
 |------|------|
-| PostgreSQL | 5400 |
-| Redis | 6300 |
-| Server API | 8100 |
-| Admin Web | 3100 |
-| WWW Web | 3200 |
+| PostgreSQL | {{PORT_POSTGRES_DEV}} |
+| Redis | {{PORT_REDIS_DEV}} |
+| Server API | {{PORT_SERVER_DEV}} |
+| Admin Web | {{PORT_ADMIN_DEV}} |
+| WWW Web | {{PORT_WWW_DEV}} |
 
 ---
 
@@ -122,9 +122,9 @@ git push origin release/v1.0.0
 
 | 服务 | URL | 端口 |
 |------|-----|------|
-| API | https://api-staging.{{DOMAIN}} | 8110 |
-| Admin | https://admin-staging.{{DOMAIN}} | 3110 |
-| WWW | https://www-staging.{{DOMAIN}} | 3210 |
+| API | https://api-staging.{{DOMAIN}} | {{PORT_SERVER_STAGING}} |
+| Admin | https://admin-staging.{{DOMAIN}} | {{PORT_ADMIN_STAGING}} |
+| WWW | https://www-staging.{{DOMAIN}} | {{PORT_WWW_STAGING}} |
 
 ---
 
@@ -151,9 +151,9 @@ git push origin main
 
 | 服务 | URL | 端口 |
 |------|-----|------|
-| API | https://api.{{DOMAIN}} | 8120 |
-| Admin | https://admin.{{DOMAIN}} | 3120 |
-| WWW | https://www.{{DOMAIN}} | 3220 |
+| API | https://api.{{DOMAIN}} | {{PORT_SERVER_PROD}} |
+| Admin | https://admin.{{DOMAIN}} | {{PORT_ADMIN_PROD}} |
+| WWW | https://www.{{DOMAIN}} | {{PORT_WWW_PROD}} |
 
 ---
 
@@ -189,8 +189,8 @@ git push origin main
 
 | Secret | 说明 | 示例 |
 |--------|------|------|
-| `STAGING_DATABASE_URL` | PostgreSQL 连接串 | `postgresql://xiaoyue:pwd@host:5410/{{NAME}}_staging` |
-| `STAGING_REDIS_URL` | Redis 连接串 | `redis://:pwd@host:6310/0` |
+| `STAGING_DATABASE_URL` | PostgreSQL 连接串 | `postgresql://{{NAME}}:pwd@host:{{PORT_POSTGRES_STAGING}}/{{NAME}}_staging` |
+| `STAGING_REDIS_URL` | Redis 连接串 | `redis://:pwd@host:{{PORT_REDIS_STAGING}}/0` |
 | `STAGING_JWT_ACCESS_SECRET` | JWT 密钥（≥32字符） | 使用 `openssl rand -base64 32` 生成 |
 | `STAGING_JWT_REFRESH_SECRET` | JWT 刷新密钥 | 同上 |
 | `STAGING_CORS_ORIGINS` | CORS 白名单 | `https://admin-staging.{{DOMAIN}},https://www-staging.{{DOMAIN}}` |
@@ -229,11 +229,11 @@ openssl rand -base64 64 | tr -d '\n'
 
 | 服务 | Dev | Staging | Prod |
 |------|-----|---------|------|
-| PostgreSQL | 5400 | 5410 | 5420 |
-| Redis | 6300 | 6310 | 6320 |
-| Server API | 8100 | 8110 | 8120 |
-| Admin Web | 3100 | 3110 | 3120 |
-| WWW Web | 3200 | 3210 | 3220 |
+| PostgreSQL | {{PORT_POSTGRES_DEV}} | {{PORT_POSTGRES_STAGING}} | {{PORT_POSTGRES_PROD}} |
+| Redis | {{PORT_REDIS_DEV}} | {{PORT_REDIS_STAGING}} | {{PORT_REDIS_PROD}} |
+| Server API | {{PORT_SERVER_DEV}} | {{PORT_SERVER_STAGING}} | {{PORT_SERVER_PROD}} |
+| Admin Web | {{PORT_ADMIN_DEV}} | {{PORT_ADMIN_STAGING}} | {{PORT_ADMIN_PROD}} |
+| WWW Web | {{PORT_WWW_DEV}} | {{PORT_WWW_STAGING}} | {{PORT_WWW_PROD}} |
 
 ---
 
@@ -277,10 +277,10 @@ docker compose exec -T server pnpm prisma migrate deploy
 
 ```bash
 # 本地连接 staging 数据库（需 SSH 隧道，因为端口只绑定 127.0.0.1）
-ssh -L 5410:127.0.0.1:5410 user@staging-server
+ssh -L {{PORT_POSTGRES_STAGING}}:127.0.0.1:{{PORT_POSTGRES_STAGING}} user@staging-server
 
 # 然后本地连接
-psql -h localhost -p 5410 -U xiaoyue -d {{NAME}}_staging
+psql -h localhost -p {{PORT_POSTGRES_STAGING}} -U {{NAME}} -d {{NAME}}_staging
 ```
 
 ---

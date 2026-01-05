@@ -17,9 +17,9 @@
 ```
 {{TITLE}}/
 ├── apps/
-│   ├── server/          # NestJS 后端 (端口 8100)
-│   ├── admin-web/       # React 管理后台 (端口 3100)
-│   ├── www-web/         # WWW 移动端 (端口 3200)
+│   ├── server/          # NestJS 后端 (端口 {{PORT_SERVER_DEV}})
+│   ├── admin-web/       # React 管理后台 (端口 {{PORT_ADMIN_DEV}})
+│   ├── www-web/         # WWW 移动端 (端口 {{PORT_WWW_DEV}})
 │   └── miniprogram/     # 微信小程序 (Taro)
 ├── packages/
 │   ├── shared-types/    # 共享 TS 类型

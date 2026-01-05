@@ -15,7 +15,7 @@ This file provides guidance to Claude Code when working with this WWW mobile web
 ## 常用命令
 
 ```bash
-pnpm dev          # 启动开发服务器 (端口 3200)
+pnpm dev          # 启动开发服务器 (端口 {{PORT_WWW_DEV}})
 pnpm build        # 构建生产版本
 pnpm typecheck    # 类型检查
 pnpm lint         # 代码检查

@@ -5,7 +5,7 @@
   "description": "{{TITLE}} - WWW 移动端",
   "type": "module",
   "scripts": {
-    "dev": "vite --port 3200",
+    "dev": "vite --port {{PORT_WWW_DEV}}",
     "build": "tsc -b && vite build",
     "preview": "vite preview",
     "lint": "eslint .",

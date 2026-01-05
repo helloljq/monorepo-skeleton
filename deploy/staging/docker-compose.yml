@@ -21,7 +21,7 @@ services:
       TZ: Asia/Shanghai
     ports:
       # 仅绑定本机，避免公网暴露
-      - "127.0.0.1:5410:5432"
+      - "127.0.0.1:{{PORT_POSTGRES_STAGING}}:5432"
     volumes:
       - {{NAME}}-staging-postgres:/var/lib/postgresql/data
     healthcheck:
@@ -56,7 +56,7 @@ services:
       TZ: Asia/Shanghai
     ports:
       # 仅绑定本机，避免公网暴露
-      - "127.0.0.1:6310:6379"
+      - "127.0.0.1:{{PORT_REDIS_STAGING}}:6379"
     volumes:
       - {{NAME}}-staging-redis:/data
     healthcheck:
@@ -102,7 +102,7 @@ services:
       CORS_ORIGINS: ${CORS_ORIGINS:-}
       TZ: Asia/Shanghai
     ports:
-      - "8110:8100"
+      - "{{PORT_SERVER_STAGING}}:8100"
     healthcheck:
       test: ["CMD", "node", "-e", "require('http').get('http://localhost:8100/health', (r) => process.exit(r.statusCode === 200 ? 0 : 1))"]
       interval: 30s
@@ -135,7 +135,7 @@ services:
     environment:
       TZ: Asia/Shanghai
     ports:
-      - "3110:80"
+      - "{{PORT_ADMIN_STAGING}}:80"
     healthcheck:
       test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://127.0.0.1/ || exit 1"]
       interval: 30s
@@ -159,7 +159,7 @@ services:
     environment:
       TZ: Asia/Shanghai
     ports:
-      - "3210:80"
+      - "{{PORT_WWW_STAGING}}:80"
     healthcheck:
       test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://127.0.0.1/ || exit 1"]
       interval: 30s

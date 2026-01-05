@@ -18,7 +18,7 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
       TZ: Asia/Shanghai
     ports:
-      - "5400:5432"
+      - "{{PORT_POSTGRES_DEV}}:5432"
     volumes:
       - {{NAME}}-dev-postgres:/var/lib/postgresql/data
     healthcheck:
@@ -38,7 +38,7 @@ services:
       REDISCLI_AUTH: ${REDIS_PASSWORD}
       TZ: Asia/Shanghai
     ports:
-      - "6300:6379"
+      - "{{PORT_REDIS_DEV}}:6379"
     volumes:
       - {{NAME}}-dev-redis:/data
     healthcheck:

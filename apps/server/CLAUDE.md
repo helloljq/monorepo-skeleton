@@ -234,7 +234,7 @@ return {
 ### 10. 环境变量
 
 **关键配置** (在 `env.schema.ts` 强校验):
-- `PORT` - 默认 8100
+- `PORT` - 默认 {{PORT_SERVER_DEV}}
 - `DATABASE_URL` - PostgreSQL 连接串
 - `REDIS_URL` - Redis 连接串
 - `JWT_ACCESS_SECRET` / `JWT_REFRESH_SECRET`
@@ -297,9 +297,9 @@ return {
 
 ## 常用服务端点
 
-- **Swagger 文档**: `http://localhost:8100/api`
-- **健康检查**: `http://localhost:8100/health`
-- **Prometheus 指标**: `http://localhost:8100/metrics`
+- **Swagger 文档**: `http://localhost:{{PORT_SERVER_DEV}}/api`
+- **健康检查**: `http://localhost:{{PORT_SERVER_DEV}}/health`
+- **Prometheus 指标**: `http://localhost:{{PORT_SERVER_DEV}}/metrics`
 - **业务接口前缀**: `/api/v1` (如 `POST /api/v1/auth/login`)
 
 ## 前端 API 使用文档
@@ -308,7 +308,7 @@ return {
 
 - **[Dictionary API 前端使用指南](docs/features/DICTIONARY_API_GUIDE.md)** - 字典/配置管理 API（包含性能优化最佳实践）
 
-更多 API 文档请访问 Swagger: `http://localhost:8100/api`
+更多 API 文档请访问 Swagger: `http://localhost:{{PORT_SERVER_DEV}}/api`
 
 ## 详细开发规范
 
@@ -660,7 +660,7 @@ HTTP Response
 | `REDIS_URL` | ✅ | - | Redis 连接串 |
 | `JWT_ACCESS_SECRET` | ✅ | - | Access Token 密钥 (≥32字符) |
 | `JWT_REFRESH_SECRET` | ✅ | - | Refresh Token 密钥 (≥32字符) |
-| `PORT` | - | 8100 | 服务端口 |
+| `PORT` | - | {{PORT_SERVER_DEV}} | 服务端口 |
 | `JWT_ACCESS_TTL` | - | 15m | Access Token 有效期 |
 | `JWT_REFRESH_TTL` | - | 7d | Refresh Token 有效期 |
 | `RATE_LIMIT_MAX` | - | 100 | 每窗口最大请求数 |
@@ -678,7 +678,7 @@ HTTP Response
 | 运行单个测试用例 | `pnpm test -- -t "should create user"` |
 | 检查架构依赖 | `pnpm arch-check` |
 | 检查软删除一致性 | `pnpm soft-delete-check` |
-| 生成 Swagger JSON | 访问 `http://localhost:8100/api-json` |
+| 生成 Swagger JSON | 访问 `http://localhost:{{PORT_SERVER_DEV}}/api-json` |
 
 ### AI 常见错误提醒
 

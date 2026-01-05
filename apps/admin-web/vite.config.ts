@@ -35,9 +35,9 @@ export default defineConfig({
   },
   server: {
     host: true,
-    port: 3100,
+    port: {{PORT_ADMIN_DEV}},
     strictPort: true,
-    allowedHosts: ['i.54kb.com', 'admin-dev.{{DOMAIN}}'],
+    allowedHosts: ['admin-dev.{{DOMAIN}}', '{{DOMAIN}}'],
     proxy: {
       '/api': {
         target: 'https://api-dev.{{DOMAIN}}',
@@ -46,7 +46,7 @@ export default defineConfig({
     },
   },
   preview: {
-    port: 3100,
+    port: {{PORT_ADMIN_DEV}},
   },
   resolve: {
     alias: {

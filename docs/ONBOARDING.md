@@ -69,7 +69,7 @@ pnpm install
 
 ```bash
 # 1. 验证 NAS 连通性
-nc -zv nas 5400 && nc -zv nas 6300
+nc -zv nas {{PORT_POSTGRES_DEV}} && nc -zv nas {{PORT_REDIS_DEV}}
 
 # 2. 配置各应用环境变量
 # 注意: server 使用 .env (Prisma CLI 要求)，前端使用 .env.development (Vite 支持)
@@ -238,8 +238,8 @@ pnpm install
 
 ```bash
 # 方式 A (NAS): 检查 Tailscale 连通性
-nc -zv nas 5400
-nc -zv nas 6300
+nc -zv nas {{PORT_POSTGRES_DEV}}
+nc -zv nas {{PORT_REDIS_DEV}}
 
 # 方式 B (本地 Docker): 检查容器状态
 docker-compose ps
