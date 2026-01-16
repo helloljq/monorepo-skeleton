@@ -1,15 +1,20 @@
 {
-  "name": "@{{NAME}}/miniprogram",
+  "name": "@monorepo-skeleton/miniprogram",
   "version": "0.0.1",
   "private": true,
-  "description": "{{TITLE}} - 微信小程序",
+  "description": "Monorepo Skeleton - 微信小程序",
   "templateInfo": {
     "name": "default",
     "typescript": true,
     "css": "sass"
   },
+  "engines": {
+    "node": ">=20.0.0"
+  },
   "scripts": {
-    "build:weapp": "taro build --type weapp",
+    "build:weapp": "TARO_APP_ENV=development taro build --type weapp",
+    "build:weapp:staging": "TARO_APP_ENV=staging taro build --type weapp",
+    "build:weapp:prod": "TARO_APP_ENV=production taro build --type weapp",
     "dev:weapp": "npm run build:weapp -- --watch",
     "dev": "npm run dev:weapp",
     "build": "npm run build:weapp",
@@ -31,7 +36,7 @@
     "@tarojs/runtime": "4.0.9",
     "@tarojs/shared": "4.0.9",
     "@tarojs/taro": "4.0.9",
-    "@{{NAME}}/shared-types": "workspace:*",
+    "@monorepo-skeleton/shared-types": "workspace:*",
     "react": "^18.3.1",
     "react-dom": "^18.3.1"
   },

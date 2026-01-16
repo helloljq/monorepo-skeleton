@@ -1,0 +1,66 @@
+# PR 规范校验工作流
+#
+# 说明：
+# - PR 标题遵循 Conventional Commits（scope 可选）
+# - 同仓库分支名遵循 <type>/<kebab-case-name>
+# - fork PR 与依赖更新 bot 默认跳过分支名校验
+
+name: PR Lint
+
+on:
+  pull_request:
+    types: [opened, edited, synchronize]
+
+jobs:
+  validate-pr-title:
+    if: ${{ github.actor != 'dependabot[bot]' && github.actor != 'renovate[bot]' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Validate PR Title
+        uses: amannn/action-semantic-pull-request@v5
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          types: |
+            feat
+            fix
+            refactor
+            perf
+            test
+            chore
+            docs
+            build
+            ci
+          requireScope: false
+          subjectPattern: ^.+$
+          subjectPatternError: |
+            PR 标题格式错误
+            ✅ 正确格式: type(scope?): description
+            ✅ 示例: feat: add user login, fix(auth): handle token expiry
+
+  validate-branch-name:
+    if: ${{ github.event.pull_request.head.repo.full_name == github.repository && github.actor != 'dependabot[bot]' && github.actor != 'renovate[bot]' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check branch name
+        run: |
+          BRANCH_NAME="${{ github.head_ref }}"
+          PATTERN="^((feat|fix|refactor|perf|test|chore|docs)/[a-z0-9]+(-[a-z0-9]+)*|hotfix/([a-z0-9]+(-[a-z0-9]+)*|v[0-9]+\\.[0-9]+\\.[0-9]+))$"
+
+          if [[ ! "$BRANCH_NAME" =~ $PATTERN ]]; then
+            echo "❌ 分支名 '$BRANCH_NAME' 不符合规范"
+            echo ""
+            echo "✅ 正确格式: <type>/<name>"
+            echo "✅ 允许的 type: feat, fix, refactor, perf, test, chore, docs, hotfix"
+            echo "✅ name 使用 kebab-case（小写字母 + 短横线）"
+            echo ""
+            echo "示例:"
+            echo "  feat/add-user-login"
+            echo "  fix/payment-timeout"
+            echo "  fix/123-payment-bug"
+            echo "  hotfix/order-crash"
+            echo "  hotfix/v1.2.1"
+            exit 1
+          fi
+
+          echo "✅ 分支名检查通过: $BRANCH_NAME"

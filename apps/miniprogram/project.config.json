@@ -1,7 +1,7 @@
 {
   "miniprogramRoot": "dist/",
-  "projectname": "{{NAME}}-miniprogram",
-  "description": "{{TITLE}}微信小程序",
+  "projectname": "monorepo-skeleton-miniprogram",
+  "description": "Monorepo Skeleton微信小程序",
   "appid": "wxd28ff7fc1eb031a9",
   "setting": {
     "urlCheck": true,

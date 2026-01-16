@@ -1,21 +1,29 @@
 {
-  "name": "{{NAME}}",
+  "name": "monorepo-skeleton",
   "version": "0.0.1",
   "private": true,
-  "description": "{{TITLE}} - Monorepo",
+  "description": "Monorepo Skeleton - Monorepo",
   "scripts": {
-    "dev": "turbo dev --filter=!@{{NAME}}/miniprogram",
+    "dev": "turbo dev --filter=!@monorepo-skeleton/miniprogram",
     "dev:all": "turbo dev",
-    "build": "turbo build",
-    "lint": "turbo lint",
-    "typecheck": "turbo typecheck",
-    "test": "turbo test",
-    "format": "prettier --write \"**/*.{ts,tsx,js,jsx,json,md}\"",
-    "format:check": "prettier --check \"**/*.{ts,tsx,js,jsx,json,md}\"",
+    "build": "turbo build --filter=!@monorepo-skeleton/miniprogram",
+    "build:all": "turbo build",
+    "lint": "turbo lint --filter=!@monorepo-skeleton/miniprogram",
+    "lint:all": "turbo lint",
+    "lint:ci": "turbo lint --filter=!@monorepo-skeleton/miniprogram -- --max-warnings 0",
+    "lint:ci:all": "turbo lint -- --max-warnings 0",
+    "typecheck": "turbo typecheck --filter=!@monorepo-skeleton/miniprogram",
+    "typecheck:all": "turbo typecheck",
+    "test": "turbo test --filter=!@monorepo-skeleton/miniprogram",
+    "test:all": "turbo test",
+    "format": "prettier --write \"**/*.{ts,tsx,js,jsx,json,md,css,scss,less,yaml,yml}\"",
+    "format:check": "prettier --check \"**/*.{ts,tsx,js,jsx,json,md,css,scss,less,yaml,yml}\"",
     "clean": "turbo clean && rm -rf node_modules",
     "prepare": "husky"
   },
   "devDependencies": {
+    "@commitlint/cli": "^20.2.0",
+    "@commitlint/config-conventional": "^20.2.0",
     "husky": "^9.1.7",
     "lint-staged": "^16.2.7",
     "prettier": "^3.4.2",
@@ -27,11 +35,11 @@
     "pnpm": ">=9.0.0"
   },
   "lint-staged": {
-    "*.{ts,tsx}": [
-      "eslint --fix",
-      "prettier --write"
+    "*.{ts,tsx,js,jsx}": [
+      "prettier --write",
+      "node scripts/lint-staged-eslint.mjs"
     ],
-    "*.{json,md,css}": [
+    "*.{json,md,css,scss,less,yaml,yml}": [
       "prettier --write"
     ]
   }

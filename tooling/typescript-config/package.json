@@ -1,5 +1,5 @@
 {
-  "name": "@{{NAME}}/typescript-config",
+  "name": "@monorepo-skeleton/typescript-config",
   "version": "0.0.1",
   "private": true,
   "description": "共享 TypeScript 配置"

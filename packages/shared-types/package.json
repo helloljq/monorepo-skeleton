@@ -1,8 +1,8 @@
 {
-  "name": "@{{NAME}}/shared-types",
+  "name": "@monorepo-skeleton/shared-types",
   "version": "0.0.1",
   "private": true,
-  "description": "{{TITLE}} - 共享类型定义",
+  "description": "Monorepo Skeleton - 共享类型定义",
   "main": "./src/index.ts",
   "types": "./src/index.ts",
   "exports": {

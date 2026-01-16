@@ -1,5 +1,5 @@
 {
-  "name": "@{{NAME}}/eslint-config",
+  "name": "@monorepo-skeleton/eslint-config",
   "version": "0.0.1",
   "private": true,
   "description": "共享 ESLint 配置",

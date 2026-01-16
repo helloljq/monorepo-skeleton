@@ -4,9 +4,10 @@
 # 此流水线负责构建 Docker 镜像并通过 SSH 部署到服务器
 # 使用 deploy/staging/ 和 deploy/prod/ 的 docker-compose.yml（包含数据库容器）
 #
-# 触发条件:
-#   - release/* 分支: 部署到 staging 环境
-#   - main 分支: 部署到 production 环境（需手动批准）
+# 触发条件（对齐 ADR-DEPLOY-001）:
+#   - dev: push main 由独立工作流处理（见 .github/workflows/deploy-dev.yml）
+#   - production: vX.Y.Z tag 触发（需环境审批）
+#   - staging/production: workflow_dispatch 手动触发（需环境审批配置）
 #
 # ============================================================================
 # 必需的 GitHub Secrets
@@ -17,6 +18,16 @@
 #   - DOCKER_NAMESPACE: 镜像命名空间 (如 {{NAME}}ht)
 #   - DOCKER_USERNAME: 仓库用户名
 #   - DOCKER_PASSWORD: 仓库密码
+#
+# Dev 服务器:
+#   - DEV_SERVER_HOST: 服务器 IP 或域名
+#   - DEV_SERVER_USER: SSH 用户名
+#   - DEV_SERVER_SSH_KEY: SSH 私钥
+#   - DEV_POSTGRES_PASSWORD: PostgreSQL 密码
+#   - DEV_REDIS_PASSWORD: Redis 密码
+#   - DEV_JWT_ACCESS_SECRET: JWT 密钥 (32+ 字符)
+#   - DEV_JWT_REFRESH_SECRET: JWT 刷新密钥
+#   - DEV_CORS_ORIGINS: CORS 白名单 (逗号分隔)
 #
 # Staging 服务器:
 #   - STAGING_SERVER_HOST: 服务器 IP 或域名
@@ -47,15 +58,14 @@ name: CD
 
 on:
   push:
-    branches:
-      - main
-      - 'release/**'
+    tags:
+      - "v*"
   workflow_dispatch:
     inputs:
       environment:
-        description: '部署环境'
+        description: "部署环境"
         required: true
-        default: 'staging'
+        default: "staging"
         type: choice
         options:
           - staging
@@ -127,10 +137,7 @@ jobs:
           if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
             echo "environment=${{ github.event.inputs.environment }}" >> $GITHUB_OUTPUT
             echo "should_deploy=true" >> $GITHUB_OUTPUT
-          elif [[ "${{ github.ref }}" == refs/heads/release/* ]]; then
-            echo "environment=staging" >> $GITHUB_OUTPUT
-            echo "should_deploy=true" >> $GITHUB_OUTPUT
-          elif [ "${{ github.ref }}" == "refs/heads/main" ]; then
+          elif [[ "${{ github.ref }}" == refs/tags/v* ]]; then
             echo "environment=production" >> $GITHUB_OUTPUT
             echo "should_deploy=true" >> $GITHUB_OUTPUT
           else

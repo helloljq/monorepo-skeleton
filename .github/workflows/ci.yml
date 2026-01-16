@@ -1,20 +1,29 @@
+# CI 工作流（工程质量闸门）
+#
+# 约定：
+# - 仅 main 分支参与合并与发布（不维护长期 develop 分支）
+# - Node 版本以根目录 .nvmrc 为准
+# - CI 必须通过 format/lint/typecheck/test/build 才能合并
+
 name: CI
 
 on:
-  push:
-    branches: [main, develop]
   pull_request:
-    branches: [main, develop]
+    branches: [main]
+    types: [opened, synchronize, reopened, ready_for_review]
+  push:
+    branches: [main]
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
+  group: ${{ github.workflow }}-${{ github.head_ref || github.ref }}
   cancel-in-progress: true
 
 jobs:
-  ci:
-    name: Build & Test
+  quality:
+    name: Quality Check
     runs-on: ubuntu-latest
-
+    # 跳过草稿 PR
+    if: github.event_name == 'push' || github.event.pull_request.draft == false
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -25,29 +34,75 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 20
-          cache: 'pnpm'
+          node-version-file: ".nvmrc"
+          cache: "pnpm"
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
       - name: Generate Prisma Client
-        run: pnpm --filter server prisma:generate
+        run: pnpm --filter ./apps/server prisma:generate
+
+      - name: Format check
+        run: pnpm format:check
 
       - name: Lint
-        run: pnpm lint
+        run: pnpm lint:ci
 
-      - name: Typecheck
+      - name: Type check
         run: pnpm typecheck
+
+      - name: Test
+        run: pnpm test
+
+  build:
+    name: Build
+    needs: quality
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: ".nvmrc"
+          cache: "pnpm"
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Generate Prisma Client
+        run: pnpm --filter ./apps/server prisma:generate
 
       - name: Build
         run: pnpm build
 
-      - name: Test Server
-        run: pnpm --filter server test
+  commitlint:
+    name: Commit Lint
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
-      - name: Test Admin Web
-        run: pnpm --filter admin-web test:run
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
 
-      - name: Test Shared Utils
-        run: pnpm --filter shared-utils test
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: ".nvmrc"
+          cache: "pnpm"
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Validate commits
+        run: pnpm exec commitlint --from ${{ github.event.pull_request.base.sha }} --to ${{ github.event.pull_request.head.sha }} --verbose

@@ -8,6 +8,8 @@
     "moduleResolution": "bundler",
     "allowImportingTsExtensions": true,
     "resolveJsonModule": true,
+    "verbatimModuleSyntax": true,
+    "moduleDetection": "force",
     "isolatedModules": true,
     "noEmit": true,
     "jsx": "react-jsx",
@@ -15,6 +17,7 @@
     "noUnusedLocals": true,
     "noUnusedParameters": true,
     "noFallthroughCasesInSwitch": true,
+    "noUncheckedSideEffectImports": true,
     "baseUrl": ".",
     "paths": {
       "@/*": ["src/*"]

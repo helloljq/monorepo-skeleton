@@ -1,8 +1,8 @@
 {
-  "name": "@{{NAME}}/shared-utils",
+  "name": "@monorepo-skeleton/shared-utils",
   "version": "0.0.1",
   "private": true,
-  "description": "{{TITLE}} - 共享工具函数",
+  "description": "Monorepo Skeleton - 共享工具函数",
   "main": "./src/index.ts",
   "types": "./src/index.ts",
   "exports": {

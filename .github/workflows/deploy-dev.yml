@@ -1,0 +1,31 @@
+# Dev 环境自动部署工作流（对齐 ADR-DEPLOY-001）
+#
+# 说明：
+# - push main 自动触发（建议在 GitHub Environments 中创建 dev，且不需要审批）
+# - 具体部署逻辑按项目实际平台替换（Docker / Vercel / K8s / Serverless 等）
+
+name: Deploy Dev
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-dev
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Deploy to Dev
+    runs-on: ubuntu-latest
+    environment: dev
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Deploy placeholder
+        run: |
+          echo "Deploying to dev environment"
+          echo "Commit: ${{ github.sha }}"
+          echo "Please replace this step with actual deployment logic"
