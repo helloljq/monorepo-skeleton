@@ -11,21 +11,21 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import type { User } from "../types";
+import type { User } from "@/features/user/types";
 
 interface UserTableProps {
   data: User[];
   isLoading: boolean;
   pagination: {
     page: number;
-    limit: number;
+    pageSize: number;
     total: number;
     totalPages: number;
   };
   onPageChange: (page: number) => void;
   onAssignRoles: (user: User) => void;
-  selectedIds: number[];
-  onSelectChange: (ids: number[]) => void;
+  selectedIds: string[];
+  onSelectChange: (ids: string[]) => void;
 }
 
 export function UserTable({
@@ -57,7 +57,7 @@ export function UserTable({
     }
   };
 
-  const handleSelectOne = (userId: number, checked: boolean) => {
+  const handleSelectOne = (userId: string, checked: boolean) => {
     if (checked) {
       onSelectChange([...selectedIds, userId]);
     } else {

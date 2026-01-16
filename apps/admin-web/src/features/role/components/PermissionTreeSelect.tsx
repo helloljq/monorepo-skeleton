@@ -3,10 +3,10 @@ import { ChevronRight } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Collapsible, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { cn } from "@/lib/utils";
-import type { Permission } from "@/features/permission/types";
+import type { Permission } from "@/features/permission";
 
 interface PermissionTreeNode {
-  id: string | number;
+  id: string;
   label: string;
   type: "module" | "resource" | "permission";
   checked: boolean;
@@ -16,8 +16,8 @@ interface PermissionTreeNode {
 
 interface PermissionTreeSelectProps {
   permissions: Permission[];
-  selectedPermissionIds: number[];
-  onChange: (permissionIds: number[]) => void;
+  selectedPermissionIds: string[];
+  onChange: (permissionIds: string[]) => void;
 }
 
 export function PermissionTreeSelect({
@@ -137,9 +137,9 @@ export function PermissionTreeSelect({
     onChange(newSelectedIds);
   };
 
-  const collectPermissionIds = (node: PermissionTreeNode): number[] => {
+  const collectPermissionIds = (node: PermissionTreeNode): string[] => {
     if (node.type === "permission") {
-      return [node.id as number];
+      return [node.id];
     }
 
     if (!node.children) {

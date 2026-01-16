@@ -17,7 +17,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
-import type { ConfigItemHistory } from "../types";
+import type { ConfigItemHistory } from "@/features/config-item/types";
 
 interface HistoryDiffDialogProps {
   open: boolean;

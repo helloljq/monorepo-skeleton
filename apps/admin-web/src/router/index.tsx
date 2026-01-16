@@ -1,32 +1,23 @@
 import { Routes, Route, Navigate } from "react-router-dom";
 
-import { LoginPage, RegisterPage } from "@/features/auth/components";
-import { DashboardPage } from "@/features/dashboard/components";
-import {
-  DictionaryListPage,
-  DictionaryFormPage,
-} from "@/features/dictionary/components";
-import {
-  PermissionListPage,
-  PermissionFormPage,
-} from "@/features/permission/components";
+import { LoginPage, RegisterPage } from "@/features/auth";
+import { DashboardPage } from "@/features/dashboard";
+import { DictionaryListPage, DictionaryFormPage } from "@/features/dictionary";
+import { PermissionListPage, PermissionFormPage } from "@/features/permission";
 import {
   RoleListPage,
   RoleFormPage,
   RolePermissionsPage,
-} from "@/features/role/components";
-import { UserListPage, UserRolesPage } from "@/features/user/components";
-import {
-  NamespaceListPage,
-  NamespaceFormPage,
-} from "@/features/namespace/components";
+} from "@/features/role";
+import { UserListPage, UserRolesPage } from "@/features/user";
+import { NamespaceListPage, NamespaceFormPage } from "@/features/namespace";
 import {
   ConfigItemListPage,
   ConfigItemFormPage,
   ConfigItemHistoryPage,
-} from "@/features/config-item/components";
-import { ProfilePage } from "@/features/profile/components";
-import { SettingsPage } from "@/features/settings/components";
+} from "@/features/config-item";
+import { ProfilePage } from "@/features/profile";
+import { SettingsPage } from "@/features/settings";
 import { DashboardLayout } from "@/components/layout";
 import { AuthGuard, NotFoundPage } from "@/components/common";
 

@@ -6,7 +6,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { SidebarNav } from "./SidebarNav";
 import { menuConfig } from "@/config/menu";
-import { useUIStore } from "@/stores/uiStore";
+import { useUIStore } from "@/stores/ui-store";
 
 export function Sidebar() {
   const { sidebarCollapsed, toggleSidebar } = useUIStore();

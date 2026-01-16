@@ -4,29 +4,23 @@
 
 /** 单个验证错误 */
 export interface ValidationError {
-  origin?: string;
-  code: string;
-  format?: string;
-  pattern?: string;
-  path: string[];
+  field: string;
   message: string;
 }
 
 /** API 错误响应体 */
 export interface ApiErrorResponse {
-  code: number;
+  code: string;
   message: string;
   data?: {
     errors?: ValidationError[];
   };
-  timestamp?: number;
 }
 
 /** 自定义 API 错误类，携带完整的后端错误信息 */
 export class ApiError extends Error {
-  public readonly code: number;
+  public readonly code: string;
   public readonly data?: ApiErrorResponse["data"];
-  public readonly timestamp?: number;
   public readonly status: number;
 
   constructor(response: ApiErrorResponse, status: number) {
@@ -34,7 +28,6 @@ export class ApiError extends Error {
     this.name = "ApiError";
     this.code = response.code;
     this.data = response.data;
-    this.timestamp = response.timestamp;
     this.status = status;
   }
 
@@ -50,13 +43,13 @@ export class ApiError extends Error {
 
   /** 获取指定字段的第一个错误消息 */
   getFieldError(fieldName: string): string | undefined {
-    return this.validationErrors.find((e) => e.path[0] === fieldName)?.message;
+    return this.validationErrors.find((e) => e.field === fieldName)?.message;
   }
 
   /** 获取指定字段的所有错误消息 */
   getFieldErrors(fieldName: string): string[] {
     return this.validationErrors
-      .filter((e) => e.path[0] === fieldName)
+      .filter((e) => e.field === fieldName)
       .map((e) => e.message);
   }
 
@@ -64,9 +57,8 @@ export class ApiError extends Error {
   getFieldErrorMap(): Record<string, string> {
     const errors: Record<string, string> = {};
     this.validationErrors.forEach((err) => {
-      const fieldName = err.path[0];
-      if (fieldName && !errors[fieldName]) {
-        errors[fieldName] = err.message;
+      if (err.field && !errors[err.field]) {
+        errors[err.field] = err.message;
       }
     });
     return errors;
@@ -74,9 +66,7 @@ export class ApiError extends Error {
 
   /** 获取格式化的错误消息列表 */
   getFormattedErrors(): string[] {
-    return this.validationErrors.map(
-      (e) => `${e.path.join(".")}: ${e.message}`,
-    );
+    return this.validationErrors.map((e) => `${e.field}: ${e.message}`);
   }
 }
 

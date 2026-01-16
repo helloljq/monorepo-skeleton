@@ -450,7 +450,7 @@ export function usePermissionControllerFindModules<
  * @summary 权限详情
  */
 export const permissionControllerFindOne = (
-  id: number,
+  id: string,
   options?: SecondParameter<typeof customFetch>,
   signal?: AbortSignal,
 ) => {
@@ -460,7 +460,7 @@ export const permissionControllerFindOne = (
   );
 };
 
-export const getPermissionControllerFindOneQueryKey = (id?: number) => {
+export const getPermissionControllerFindOneQueryKey = (id?: string) => {
   return [`/v1/permissions/${id}`] as const;
 };
 
@@ -468,7 +468,7 @@ export const getPermissionControllerFindOneQueryOptions = <
   TData = Awaited<ReturnType<typeof permissionControllerFindOne>>,
   TError = unknown,
 >(
-  id: number,
+  id: string,
   options?: {
     query?: Partial<
       UseQueryOptions<
@@ -510,7 +510,7 @@ export function usePermissionControllerFindOne<
   TData = Awaited<ReturnType<typeof permissionControllerFindOne>>,
   TError = unknown,
 >(
-  id: number,
+  id: string,
   options: {
     query: Partial<
       UseQueryOptions<
@@ -537,7 +537,7 @@ export function usePermissionControllerFindOne<
   TData = Awaited<ReturnType<typeof permissionControllerFindOne>>,
   TError = unknown,
 >(
-  id: number,
+  id: string,
   options?: {
     query?: Partial<
       UseQueryOptions<
@@ -564,7 +564,7 @@ export function usePermissionControllerFindOne<
   TData = Awaited<ReturnType<typeof permissionControllerFindOne>>,
   TError = unknown,
 >(
-  id: number,
+  id: string,
   options?: {
     query?: Partial<
       UseQueryOptions<
@@ -587,7 +587,7 @@ export function usePermissionControllerFindOne<
   TData = Awaited<ReturnType<typeof permissionControllerFindOne>>,
   TError = unknown,
 >(
-  id: number,
+  id: string,
   options?: {
     query?: Partial<
       UseQueryOptions<
@@ -618,7 +618,7 @@ export function usePermissionControllerFindOne<
  * @summary 更新权限
  */
 export const permissionControllerUpdate = (
-  id: number,
+  id: string,
   updatePermissionDto: UpdatePermissionDto,
   options?: SecondParameter<typeof customFetch>,
 ) => {
@@ -640,14 +640,14 @@ export const getPermissionControllerUpdateMutationOptions = <
   mutation?: UseMutationOptions<
     Awaited<ReturnType<typeof permissionControllerUpdate>>,
     TError,
-    { id: number; data: UpdatePermissionDto },
+    { id: string; data: UpdatePermissionDto },
     TContext
   >;
   request?: SecondParameter<typeof customFetch>;
 }): UseMutationOptions<
   Awaited<ReturnType<typeof permissionControllerUpdate>>,
   TError,
-  { id: number; data: UpdatePermissionDto },
+  { id: string; data: UpdatePermissionDto },
   TContext
 > => {
   const mutationKey = ["permissionControllerUpdate"];
@@ -661,7 +661,7 @@ export const getPermissionControllerUpdateMutationOptions = <
 
   const mutationFn: MutationFunction<
     Awaited<ReturnType<typeof permissionControllerUpdate>>,
-    { id: number; data: UpdatePermissionDto }
+    { id: string; data: UpdatePermissionDto }
   > = (props) => {
     const { id, data } = props ?? {};
 
@@ -688,7 +688,7 @@ export const usePermissionControllerUpdate = <
     mutation?: UseMutationOptions<
       Awaited<ReturnType<typeof permissionControllerUpdate>>,
       TError,
-      { id: number; data: UpdatePermissionDto },
+      { id: string; data: UpdatePermissionDto },
       TContext
     >;
     request?: SecondParameter<typeof customFetch>;
@@ -697,7 +697,7 @@ export const usePermissionControllerUpdate = <
 ): UseMutationResult<
   Awaited<ReturnType<typeof permissionControllerUpdate>>,
   TError,
-  { id: number; data: UpdatePermissionDto },
+  { id: string; data: UpdatePermissionDto },
   TContext
 > => {
   const mutationOptions = getPermissionControllerUpdateMutationOptions(options);
@@ -708,7 +708,7 @@ export const usePermissionControllerUpdate = <
  * @summary 删除权限
  */
 export const permissionControllerRemove = (
-  id: number,
+  id: string,
   options?: SecondParameter<typeof customFetch>,
 ) => {
   return customFetch<void>(
@@ -724,14 +724,14 @@ export const getPermissionControllerRemoveMutationOptions = <
   mutation?: UseMutationOptions<
     Awaited<ReturnType<typeof permissionControllerRemove>>,
     TError,
-    { id: number },
+    { id: string },
     TContext
   >;
   request?: SecondParameter<typeof customFetch>;
 }): UseMutationOptions<
   Awaited<ReturnType<typeof permissionControllerRemove>>,
   TError,
-  { id: number },
+  { id: string },
   TContext
 > => {
   const mutationKey = ["permissionControllerRemove"];
@@ -745,7 +745,7 @@ export const getPermissionControllerRemoveMutationOptions = <
 
   const mutationFn: MutationFunction<
     Awaited<ReturnType<typeof permissionControllerRemove>>,
-    { id: number }
+    { id: string }
   > = (props) => {
     const { id } = props ?? {};
 
@@ -772,7 +772,7 @@ export const usePermissionControllerRemove = <
     mutation?: UseMutationOptions<
       Awaited<ReturnType<typeof permissionControllerRemove>>,
       TError,
-      { id: number },
+      { id: string },
       TContext
     >;
     request?: SecondParameter<typeof customFetch>;
@@ -781,7 +781,7 @@ export const usePermissionControllerRemove = <
 ): UseMutationResult<
   Awaited<ReturnType<typeof permissionControllerRemove>>,
   TError,
-  { id: number },
+  { id: string },
   TContext
 > => {
   const mutationOptions = getPermissionControllerRemoveMutationOptions(options);

@@ -24,7 +24,12 @@ export type ConfigItemControllerFindAllParams = {
   /**
    * 每页数量（默认1-100，此接口允许最大1000）
    * @minimum 1
-   * @maximum 100
+   * @maximum 1000
+   */
+  pageSize?: number;
+  /**
+   * 兼容参数：limit（迁移期保留；请使用 pageSize）
+   * @deprecated
    */
   limit?: number;
 };

@@ -7,7 +7,7 @@
  */
 
 export type NamespaceControllerFindAllParams = {
-  isEnabled?: string;
+  isEnabled?: string | boolean;
   /**
    * @minimum 1
    * @maximum 9007199254740991
@@ -16,6 +16,11 @@ export type NamespaceControllerFindAllParams = {
   /**
    * @minimum 1
    * @maximum 100
+   */
+  pageSize?: number;
+  /**
+   * 兼容参数：limit（迁移期保留；请使用 pageSize）
+   * @deprecated
    */
   limit?: number;
 };

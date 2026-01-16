@@ -16,7 +16,7 @@ import {
   useRoleControllerFindAll,
   getRoleControllerFindAllQueryKey,
 } from "@/api/generated/role/role";
-import type { Role, RoleListResponse } from "../types";
+import type { Role, RoleListResponse } from "@/features/role/types";
 import { RoleTable } from "./RoleTable";
 import { DeleteConfirmDialog } from "./DeleteConfirmDialog";
 
@@ -26,14 +26,15 @@ export function RoleListPage() {
   const [searchParams, setSearchParams] = useSearchParams();
 
   const page = Number(searchParams.get("page")) || 1;
-  const limit = Number(searchParams.get("limit")) || 10;
+  const pageSize =
+    Number(searchParams.get("pageSize") ?? searchParams.get("limit")) || 10;
   const isEnabled = searchParams.get("isEnabled");
 
   const [deleteItem, setDeleteItem] = useState<Role | null>(null);
 
   const { data, isLoading } = useRoleControllerFindAll<RoleListResponse>({
     page,
-    limit,
+    pageSize,
   });
 
   const handlePageChange = (newPage: number) => {
@@ -118,13 +119,19 @@ export function RoleListPage() {
       <Card>
         <CardContent className="p-0">
           <RoleTable
-            data={Array.isArray(data?.data) ? data.data : []}
+            data={Array.isArray(data?.items) ? data.items : []}
             isLoading={isLoading}
             pagination={{
               page,
-              limit,
-              total: data?.meta?.total || 0,
-              totalPages: data?.meta?.totalPages || 0,
+              pageSize: data?.pagination?.pageSize ?? pageSize,
+              total: data?.pagination?.total || 0,
+              totalPages:
+                (data?.pagination?.pageSize ?? pageSize) > 0
+                  ? Math.ceil(
+                      (data?.pagination?.total || 0) /
+                        (data?.pagination?.pageSize ?? pageSize),
+                    )
+                  : 0,
             }}
             onPageChange={handlePageChange}
             onEdit={handleEdit}

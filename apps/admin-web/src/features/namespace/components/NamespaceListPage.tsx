@@ -16,7 +16,10 @@ import {
   useNamespaceControllerFindAll,
   getNamespaceControllerFindAllQueryKey,
 } from "@/api/generated/config-center-namespaces/config-center-namespaces";
-import type { Namespace, NamespaceListResponse } from "../types";
+import type {
+  Namespace,
+  NamespaceListResponse,
+} from "@/features/namespace/types";
 import { NamespaceTable } from "./NamespaceTable";
 import { DeleteConfirmDialog } from "./DeleteConfirmDialog";
 
@@ -26,7 +29,8 @@ export function NamespaceListPage() {
   const [searchParams, setSearchParams] = useSearchParams();
 
   const page = Number(searchParams.get("page")) || 1;
-  const limit = Number(searchParams.get("limit")) || 10;
+  const pageSize =
+    Number(searchParams.get("pageSize") ?? searchParams.get("limit")) || 10;
   const isEnabled = searchParams.get("isEnabled");
 
   const [deleteItem, setDeleteItem] = useState<Namespace | null>(null);
@@ -34,7 +38,7 @@ export function NamespaceListPage() {
   const { data, isLoading } =
     useNamespaceControllerFindAll<NamespaceListResponse>({
       page,
-      limit,
+      pageSize,
       isEnabled:
         isEnabled === "true"
           ? "true"
@@ -45,7 +49,7 @@ export function NamespaceListPage() {
 
   const handleReset = () => {
     // 重置筛选条件，保留分页设置
-    setSearchParams({ page: "1", limit: String(limit) });
+    setSearchParams({ page: "1", pageSize: String(pageSize) });
   };
 
   const handlePageChange = (newPage: number) => {
@@ -139,10 +143,17 @@ export function NamespaceListPage() {
         </CardHeader>
         <CardContent>
           <NamespaceTable
-            data={data?.data}
+            data={data?.items}
             isLoading={isLoading}
             currentPage={page}
-            totalPages={data?.meta?.totalPages || 0}
+            totalPages={
+              (data?.pagination?.pageSize ?? pageSize) > 0
+                ? Math.ceil(
+                    (data?.pagination?.total || 0) /
+                      (data?.pagination?.pageSize ?? pageSize),
+                  )
+                : 0
+            }
             onPageChange={handlePageChange}
             onEdit={handleEdit}
             onDelete={handleDelete}

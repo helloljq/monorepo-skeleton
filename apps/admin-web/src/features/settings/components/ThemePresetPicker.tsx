@@ -2,7 +2,7 @@ import { Check } from "lucide-react";
 
 import { themePresets } from "@/config/theme-presets";
 import { cn } from "@/lib/utils";
-import { useSettingsStore } from "@/stores/settingsStore";
+import { useSettingsStore } from "@/stores/settings-store";
 
 export function ThemePresetPicker() {
   const { themePreset, setThemePreset } = useSettingsStore();

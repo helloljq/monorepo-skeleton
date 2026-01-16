@@ -1,6 +1,8 @@
 import { z } from "zod";
 
 export interface Namespace {
+  /** Public ID (UUID) */
+  id: string;
   name: string;
   displayName: string;
   description?: string | null;
@@ -10,12 +12,11 @@ export interface Namespace {
 }
 
 export interface NamespaceListResponse {
-  data: Namespace[];
-  meta: {
+  items: Namespace[];
+  pagination: {
     total: number;
     page: number;
-    limit: number;
-    totalPages: number;
+    pageSize: number;
   };
 }
 

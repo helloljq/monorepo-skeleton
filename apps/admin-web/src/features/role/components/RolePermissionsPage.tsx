@@ -18,45 +18,49 @@ import {
   useRoleControllerFindRolePermissions,
 } from "@/api/generated/role/role";
 import { usePermissionControllerFindAll } from "@/api/generated/permission/permission";
-import type { Role } from "../types";
-import type {
-  Permission,
-  PermissionListResponse,
-} from "@/features/permission/types";
+import type { Role } from "@/features/role/types";
+import type { Permission, PermissionListResponse } from "@/features/permission";
 import { PermissionTreeSelect } from "./PermissionTreeSelect";
+
+type PermissionLite = Pick<
+  Permission,
+  "id" | "code" | "name" | "resource" | "action" | "module" | "isEnabled"
+>;
+
+type RolePermissionsResponse = {
+  items: PermissionLite[];
+  pagination: { total: number; page: number; pageSize: number };
+};
 
 export function RolePermissionsPage() {
   const navigate = useNavigate();
   const { id } = useParams<{ id: string }>();
-  const [selectedPermissionIds, setSelectedPermissionIds] = useState<number[]>(
+  const [selectedPermissionIds, setSelectedPermissionIds] = useState<string[]>(
     [],
   );
 
   // 获取角色详情
   const { data: role, isLoading: isLoadingRole } =
-    useRoleControllerFindOne<Role>(Number(id));
+    useRoleControllerFindOne<Role>(id ?? "", { query: { enabled: !!id } });
 
   // 获取所有权限（不分页）
   const { data: permissionsData, isLoading: isLoadingPermissions } =
     usePermissionControllerFindAll<PermissionListResponse>({
       page: 1,
-      limit: 1000, // 获取所有权限
+      pageSize: 1000, // 尝试一次性拉取（服务端会按 MaxLimit 兜底裁剪）
     });
 
   // 获取角色已有权限
   const { data: rolePermissions, isLoading: isLoadingRolePermissions } =
-    useRoleControllerFindRolePermissions<Permission[]>(Number(id));
+    useRoleControllerFindRolePermissions<RolePermissionsResponse>(id ?? "", {
+      query: { enabled: !!id },
+    });
 
   const assignPermissionsMutation = useRoleControllerAssignPermissions();
 
   // 初始化已选中的权限 - 使用 useMemo 避免在 effect 中直接调用 setState
   const initialSelectedIds = useMemo(() => {
-    if (!rolePermissions) return [];
-    // rolePermissions 可能是 Permission[] 数组或 { id: number }[] 数组
-    // 需要提取 ID
-    return Array.isArray(rolePermissions)
-      ? rolePermissions.map((p: Permission | { id: number }) => p.id)
-      : [];
+    return rolePermissions?.items?.map((p) => p.id) ?? [];
   }, [rolePermissions]);
 
   useEffect(() => {
@@ -71,7 +75,7 @@ export function RolePermissionsPage() {
 
     try {
       await assignPermissionsMutation.mutateAsync({
-        id: Number(id),
+        id,
         data: {
           permissionIds: selectedPermissionIds,
         },
@@ -113,7 +117,7 @@ export function RolePermissionsPage() {
     );
   }
 
-  const permissions = permissionsData?.data || [];
+  const permissions = permissionsData?.items || [];
 
   return (
     <div className="space-y-6">

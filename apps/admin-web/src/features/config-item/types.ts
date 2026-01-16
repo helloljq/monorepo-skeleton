@@ -3,7 +3,8 @@ import { z } from "zod";
 export type ValueType = "JSON" | "STRING" | "NUMBER" | "BOOLEAN";
 
 export interface ConfigItem {
-  id: number;
+  /** Public ID (UUID) */
+  id: string;
   namespace: string;
   key: string;
   value: unknown;
@@ -17,28 +18,31 @@ export interface ConfigItem {
 }
 
 export interface ConfigItemListResponse {
-  data: ConfigItem[];
-  meta: {
+  items: ConfigItem[];
+  pagination: {
     total: number;
     page: number;
-    limit: number;
-    totalPages: number;
+    pageSize: number;
   };
 }
 
 export interface ConfigItemHistory {
-  id: number;
-  configItemId: number;
+  version: number;
   value: unknown;
   valueType: ValueType;
-  version: number;
-  operatorId: number;
-  operatorName: string;
+  changeType: "CREATE" | "UPDATE" | "DELETE" | "ROLLBACK";
+  changeNote: string | null;
+  operator: { id: string; name: string | null } | null;
   createdAt: string;
 }
 
 export interface ConfigItemHistoryResponse {
-  data: ConfigItemHistory[];
+  items: ConfigItemHistory[];
+  pagination: {
+    total: number;
+    page: number;
+    pageSize: number;
+  };
 }
 
 // 配置项表单 Schema

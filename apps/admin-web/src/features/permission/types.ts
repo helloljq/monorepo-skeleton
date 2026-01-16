@@ -1,7 +1,8 @@
 import { z } from "zod";
 
 export interface Permission {
-  id: number;
+  /** Public ID (UUID) */
+  id: string;
   code: string;
   name: string;
   description?: string | null;
@@ -14,12 +15,11 @@ export interface Permission {
 }
 
 export interface PermissionListResponse {
-  data: Permission[];
-  meta: {
+  items: Permission[];
+  pagination: {
     total: number;
     page: number;
-    limit: number;
-    totalPages: number;
+    pageSize: number;
   };
 }
 

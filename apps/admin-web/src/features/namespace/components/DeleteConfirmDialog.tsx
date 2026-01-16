@@ -10,7 +10,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { useNamespaceControllerRemove } from "@/api/generated/config-center-namespaces/config-center-namespaces";
-import type { Namespace } from "../types";
+import type { Namespace } from "@/features/namespace/types";
 import { toast } from "sonner";
 import { getApiErrorMessage } from "@/lib/api-error";
 

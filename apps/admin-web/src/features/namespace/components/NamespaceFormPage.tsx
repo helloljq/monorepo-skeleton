@@ -31,7 +31,7 @@ import {
   namespaceFormSchema,
   type NamespaceFormData,
   type Namespace,
-} from "../types";
+} from "@/features/namespace/types";
 import { toast } from "sonner";
 import { getApiErrorMessage } from "@/lib/api-error";
 

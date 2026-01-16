@@ -8,7 +8,7 @@ import { BrowserRouter } from "react-router-dom";
 import { queryClient } from "@/lib/query-client";
 import { Toaster } from "@/components/ui/sonner";
 import { ErrorBoundary } from "@/components/common";
-import { useAuthStore } from "@/stores/authStore";
+import { useAuthStore } from "@/stores/auth-store";
 import { createLogger } from "@/lib/logger";
 
 import App from "./App";
@@ -24,34 +24,28 @@ const handleStorageChange = (e: StorageEvent) => {
       const newState = JSON.parse(e.newValue);
       const currentState = useAuthStore.getState();
 
-      // 更安全的比较：处理 null/undefined 场景
-      const newTokens = newState.state.tokens;
-      const currentTokens = currentState.tokens;
       const newUser = newState.state.user;
       const currentUser = currentState.user;
+      const newIsAuthenticated = !!newUser;
+      const currentIsAuthenticated = currentState.isAuthenticated;
 
-      // 检查是否需要同步（token 变化或认证状态变化）
+      // 检查是否需要同步（用户变化或认证状态变化）
       if (
-        newTokens?.accessToken !== currentTokens?.accessToken ||
         newUser?.id !== currentUser?.id ||
-        newState.state.isAuthenticated !== currentState.isAuthenticated
+        newIsAuthenticated !== currentIsAuthenticated
       ) {
         syncLogger.log("Auth state synced from another tab", {
-          isAuthenticated: newState.state.isAuthenticated,
+          isAuthenticated: newIsAuthenticated,
           userId: newUser?.id,
         });
 
         useAuthStore.setState({
-          user: newState.state.user,
-          tokens: newState.state.tokens,
-          isAuthenticated: newState.state.isAuthenticated,
+          user: newUser,
+          isAuthenticated: newIsAuthenticated,
         });
 
         // 如果其他标签页登出，当前标签页也需要跳转到登录页
-        if (
-          !newState.state.isAuthenticated &&
-          window.location.pathname !== "/login"
-        ) {
+        if (!newIsAuthenticated && window.location.pathname !== "/login") {
           syncLogger.log(
             "User logged out in another tab, redirecting to login",
           );

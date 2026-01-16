@@ -1,47 +1,47 @@
-import { useState } from 'react'
-import { View, Text, Button } from '@tarojs/components'
-import Taro from '@tarojs/taro'
-import { config } from '../../config'
-import './index.scss'
+import { useState } from "react";
+import { View, Text, Button } from "@tarojs/components";
+import Taro from "@tarojs/taro";
+import { config } from "../../config";
+import "./index.scss";
 
-type ApiStatus = 'idle' | 'loading' | 'success' | 'error'
+type ApiStatus = "idle" | "loading" | "success" | "error";
 
 function Index() {
-  const [apiStatus, setApiStatus] = useState<ApiStatus>('idle')
-  const [apiMessage, setApiMessage] = useState('')
+  const [apiStatus, setApiStatus] = useState<ApiStatus>("idle");
+  const [apiMessage, setApiMessage] = useState("");
 
   // 测试 API 连接
   const testApiConnection = async () => {
-    setApiStatus('loading')
-    setApiMessage('正在连接...')
+    setApiStatus("loading");
+    setApiMessage("正在连接...");
 
     try {
       const response = await Taro.request({
         url: `${config.apiBaseUrl}/health`,
-        method: 'GET',
+        method: "GET",
         timeout: 5000,
-      })
+      });
 
       if (response.statusCode === 200) {
-        setApiStatus('success')
-        setApiMessage(`API 连接成功！(${config.apiBaseUrl})`)
-        Taro.showToast({ title: '连接成功', icon: 'success' })
+        setApiStatus("success");
+        setApiMessage(`API 连接成功！(${config.apiBaseUrl})`);
+        Taro.showToast({ title: "连接成功", icon: "success" });
       } else {
-        setApiStatus('error')
-        setApiMessage(`API 返回状态码: ${response.statusCode}`)
+        setApiStatus("error");
+        setApiMessage(`API 返回状态码: ${response.statusCode}`);
       }
     } catch (error) {
-      setApiStatus('error')
-      const errorMsg = error instanceof Error ? error.message : '未知错误'
-      setApiMessage(`连接失败: ${errorMsg}`)
-      Taro.showToast({ title: '连接失败', icon: 'none' })
+      setApiStatus("error");
+      const errorMsg = error instanceof Error ? error.message : "未知错误";
+      setApiMessage(`连接失败: ${errorMsg}`);
+      Taro.showToast({ title: "连接失败", icon: "none" });
     }
-  }
+  };
 
   return (
     <View className="index">
       <View className="header">
-        <Text className="title">{{TITLE}}</Text>
+        <Text className="title">Monorepo Skeleton</Text>
         <Text className="subtitle">微信小程序</Text>
       </View>
 
@@ -59,9 +59,9 @@ function Index() {
         <Button
           className={`test-btn ${apiStatus}`}
           onClick={testApiConnection}
-          loading={apiStatus === 'loading'}
+          loading={apiStatus === "loading"}
         >
-          {apiStatus === 'loading' ? '测试中...' : '测试连接'}
+          {apiStatus === "loading" ? "测试中..." : "测试连接"}
         </Button>
 
         {apiMessage && (
@@ -69,7 +69,7 @@ function Index() {
         )}
       </View>
     </View>
-  )
+  );
 }
 
-export default Index
+export default Index;

@@ -12,7 +12,7 @@ import {
 import { getThemePreset } from "@/config/theme-presets";
 import { getContrastRatio, hslStringToHex, hexToRgb } from "@/lib/color-utils";
 import { getResolvedColorMode } from "@/lib/theme-utils";
-import { useSettingsStore } from "@/stores/settingsStore";
+import { useSettingsStore } from "@/stores/settings-store";
 
 // WCAG AA 标准：普通文本需要 4.5:1，大文本需要 3:1
 const WCAG_AA_NORMAL = 4.5;

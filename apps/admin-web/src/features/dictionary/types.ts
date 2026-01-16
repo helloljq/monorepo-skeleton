@@ -1,10 +1,11 @@
 import { z } from "zod";
 
 export interface Dictionary {
-  id: number;
+  /** Public ID (UUID) */
+  id: string;
   type: string;
   key: string;
-  value: string | number;
+  value: unknown;
   label: string;
   description?: string | null;
   sort: number;
@@ -15,12 +16,11 @@ export interface Dictionary {
 }
 
 export interface DictionaryListResponse {
-  data: Dictionary[];
-  meta: {
+  items: Dictionary[];
+  pagination: {
     total: number;
     page: number;
-    limit: number;
-    totalPages: number;
+    pageSize: number;
   };
 }
 

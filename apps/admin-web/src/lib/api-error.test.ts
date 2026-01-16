@@ -9,16 +9,15 @@ import {
 
 describe("ApiError", () => {
   const mockValidationErrors: ValidationError[] = [
-    { path: ["email"], message: "邮箱格式不正确", code: "invalid_string" },
-    { path: ["password"], message: "密码至少需要8个字符", code: "too_small" },
-    { path: ["password"], message: "密码必须包含数字", code: "custom" },
+    { field: "email", message: "邮箱格式不正确" },
+    { field: "password", message: "密码至少需要8个字符" },
+    { field: "password", message: "密码必须包含数字" },
   ];
 
   const mockApiResponse = {
-    code: 40001,
+    code: "VALIDATION_ERROR",
     message: "参数校验失败",
     data: { errors: mockValidationErrors },
-    timestamp: 1704067200000,
   };
 
   describe("constructor", () => {
@@ -27,21 +26,20 @@ describe("ApiError", () => {
 
       expect(error.name).toBe("ApiError");
       expect(error.message).toBe("参数校验失败");
-      expect(error.code).toBe(40001);
+      expect(error.code).toBe("VALIDATION_ERROR");
       expect(error.status).toBe(400);
-      expect(error.timestamp).toBe(1704067200000);
       expect(error.data).toEqual({ errors: mockValidationErrors });
     });
 
     it("should work without validation errors", () => {
       const response = {
-        code: 40101,
+        code: "UNAUTHORIZED",
         message: "未授权",
       };
       const error = new ApiError(response, 401);
 
       expect(error.message).toBe("未授权");
-      expect(error.code).toBe(40101);
+      expect(error.code).toBe("UNAUTHORIZED");
       expect(error.data).toBeUndefined();
     });
   });
@@ -54,7 +52,10 @@ describe("ApiError", () => {
     });
 
     it("should return empty array when no validation errors", () => {
-      const error = new ApiError({ code: 500, message: "服务器错误" }, 500);
+      const error = new ApiError(
+        { code: "INTERNAL_ERROR", message: "服务器错误" },
+        500,
+      );
 
       expect(error.validationErrors).toEqual([]);
     });
@@ -68,7 +69,10 @@ describe("ApiError", () => {
     });
 
     it("should return false when no validation errors", () => {
-      const error = new ApiError({ code: 500, message: "服务器错误" }, 500);
+      const error = new ApiError(
+        { code: "INTERNAL_ERROR", message: "服务器错误" },
+        500,
+      );
 
       expect(error.hasValidationErrors).toBe(false);
     });
@@ -117,7 +121,10 @@ describe("ApiError", () => {
     });
 
     it("should return empty object when no validation errors", () => {
-      const error = new ApiError({ code: 500, message: "服务器错误" }, 500);
+      const error = new ApiError(
+        { code: "INTERNAL_ERROR", message: "服务器错误" },
+        500,
+      );
 
       expect(error.getFieldErrorMap()).toEqual({});
     });
@@ -138,7 +145,10 @@ describe("ApiError", () => {
 
 describe("isApiError", () => {
   it("should return true for ApiError instance", () => {
-    const error = new ApiError({ code: 500, message: "error" }, 500);
+    const error = new ApiError(
+      { code: "INTERNAL_ERROR", message: "error" },
+      500,
+    );
 
     expect(isApiError(error)).toBe(true);
   });
@@ -159,7 +169,10 @@ describe("isApiError", () => {
 
 describe("getApiErrorMessage", () => {
   it("should return message from ApiError", () => {
-    const error = new ApiError({ code: 40001, message: "API错误消息" }, 400);
+    const error = new ApiError(
+      { code: "BAD_REQUEST", message: "API错误消息" },
+      400,
+    );
 
     expect(getApiErrorMessage(error)).toBe("API错误消息");
   });
@@ -167,12 +180,10 @@ describe("getApiErrorMessage", () => {
   it("should return first validation error message when available", () => {
     const error = new ApiError(
       {
-        code: 40001,
+        code: "VALIDATION_ERROR",
         message: "参数校验失败",
         data: {
-          errors: [
-            { path: ["email"], message: "邮箱格式不正确", code: "invalid" },
-          ],
+          errors: [{ field: "email", message: "邮箱格式不正确" }],
         },
       },
       400,

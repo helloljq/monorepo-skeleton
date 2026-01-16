@@ -12,14 +12,14 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import type { Role } from "../types";
+import type { Role } from "@/features/role/types";
 
 interface RoleTableProps {
   data: Role[];
   isLoading: boolean;
   pagination: {
     page: number;
-    limit: number;
+    pageSize: number;
     total: number;
     totalPages: number;
   };

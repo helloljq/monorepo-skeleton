@@ -1,4 +1,4 @@
-import type { ValueType } from "../types";
+import type { ValueType } from "@/features/config-item/types";
 
 export class ValueParseError extends Error {
   constructor(message: string) {

@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## 项目概述
 
-React 管理后台 Web 应用，技术栈：React 19 + TypeScript + Vite + shadcn/ui + Tailwind CSS。
+React 管理后台 Web 应用，技术栈：React 18 + TypeScript + Vite + shadcn/ui + Tailwind CSS。
 
 详细架构设计见 `docs/` 目录。
 
@@ -50,16 +50,22 @@ pnpm dlx shadcn@latest add [component-name]
 使用示例：
 
 ```typescript
-// 直接使用生成的 hooks
-import { useAuthControllerLogin } from '@/api/generated/auth/auth'
-import type { LoginDto } from '@/api/model'
+// Web 默认使用 HttpOnly Cookie（ADR-AUTH-001），不要在浏览器持久化 Token
+import { customFetch } from "@/api/custom-fetch";
 
 function LoginForm() {
-  const mutation = useAuthControllerLogin()
-
-  const handleLogin = (data: LoginDto) => {
-    mutation.mutate({ data })
-  }
+  const handleLogin = async (
+    email: string,
+    password: string,
+    deviceId: string,
+  ) => {
+    await customFetch({
+      url: "/v1/auth/web/login",
+      method: "POST",
+      data: { email, password, deviceId },
+    });
+    // Cookie 已由服务端写入；前端仅维护 user/session 状态
+  };
 }
 ```
 
@@ -68,8 +74,8 @@ function LoginForm() {
 以 Zod schema 作为单一事实来源，推导 TS 类型：
 
 ```typescript
-const userSchema = z.object({ name: z.string(), email: z.string().email() })
-type UserFormData = z.infer<typeof userSchema>
+const userSchema = z.object({ name: z.string(), email: z.string().email() });
+type UserFormData = z.infer<typeof userSchema>;
 ```
 
 ## 代码组织
@@ -100,6 +106,7 @@ Always respond in Simplified Chinese (简体中文).
 ### 新增功能模块速查
 
 **1. 创建目录结构**：
+
 ```
 src/features/{name}/
 ├── components/
@@ -117,6 +124,7 @@ src/features/{name}/
 **3. 添加菜单项**（如需要）
 
 **4. 重新生成 API**（如后端有新接口）：
+
 ```bash
 pnpm api:generate
 ```
@@ -348,94 +356,122 @@ export function {Name}Table({ data, isLoading, onDelete }: Props) {
 
 ```typescript
 // ✅ 正确：使用 Orval 生成的 hooks
-import { useUserControllerFindAll } from '@/api/generated/user/user'
-import type { UserResponseDto } from '@/api/model'
+import { useUserControllerFindAll } from "@/api/generated/user/user";
+import type { UserResponseDto } from "@/api/model";
 
 // 查询列表
-const { data, isLoading, error } = useUserControllerFindAll({ page: 1, limit: 10 })
+const { data, isLoading, error } = useUserControllerFindAll({
+  page: 1,
+  limit: 10,
+});
 
 // 查询详情
-const { data: user } = useUserControllerFindOne(userId)
+const { data: user } = useUserControllerFindOne(userId);
 
 // 创建
-const createMutation = useUserControllerCreate()
-await createMutation.mutateAsync({ data: { email, password } })
+const createMutation = useUserControllerCreate();
+await createMutation.mutateAsync({ data: { email, password } });
 
 // 更新
-const updateMutation = useUserControllerUpdate()
-await updateMutation.mutateAsync({ id: userId, data: { name } })
+const updateMutation = useUserControllerUpdate();
+await updateMutation.mutateAsync({ id: userId, data: { name } });
 
 // 删除
-const deleteMutation = useUserControllerRemove()
-await deleteMutation.mutateAsync({ id: userId })
+const deleteMutation = useUserControllerRemove();
+await deleteMutation.mutateAsync({ id: userId });
 
 // ❌ 错误：手写 fetch/axios
-fetch('/api/v1/users')  // 不要这样做
-axios.get('/api/v1/users')  // 不要这样做
+fetch("/v1/users"); // 不要这样做
+axios.get("/v1/users"); // 不要这样做
 ```
 
 ### 状态管理速查
 
-| 数据类型 | 方案 | 示例 |
-|---------|------|------|
-| 服务端列表 | TanStack Query | `useUserControllerFindAll()` |
-| 服务端详情 | TanStack Query | `useUserControllerFindOne(id)` |
-| 全局 UI 状态 | Zustand | `useAuthStore()`, `useUiStore()` |
-| 表单临时状态 | useState/useForm | `const [open, setOpen] = useState(false)` |
-| 分页/筛选参数 | URL searchParams | `useSearchParams()` |
-| 主题设置 | Zustand (persist) | `useSettingsStore()` |
+| 数据类型      | 方案              | 示例                                      |
+| ------------- | ----------------- | ----------------------------------------- |
+| 服务端列表    | TanStack Query    | `useUserControllerFindAll()`              |
+| 服务端详情    | TanStack Query    | `useUserControllerFindOne(id)`            |
+| 全局 UI 状态  | Zustand           | `useAuthStore()`, `useUiStore()`          |
+| 表单临时状态  | useState/useForm  | `const [open, setOpen] = useState(false)` |
+| 分页/筛选参数 | URL searchParams  | `useSearchParams()`                       |
+| 主题设置      | Zustand (persist) | `useSettingsStore()`                      |
 
 ### 常用组件导入
 
 ```typescript
 // UI 基础组件 (shadcn/ui)
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import {
-  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
-} from '@/components/ui/dialog'
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
 import {
-  Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
-} from '@/components/ui/table'
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import {
-  Form, FormField, FormItem, FormLabel, FormControl, FormMessage,
-} from '@/components/ui/form'
+  Form,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormControl,
+  FormMessage,
+} from "@/components/ui/form";
 import {
-  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
-} from '@/components/ui/select'
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 // 图标 (lucide-react)
-import { Plus, Pencil, Trash2, Search, MoreHorizontal, ChevronLeft } from 'lucide-react'
+import {
+  Plus,
+  Pencil,
+  Trash2,
+  Search,
+  MoreHorizontal,
+  ChevronLeft,
+} from "lucide-react";
 
 // 工具函数
-import { cn } from '@/lib/utils'
+import { cn } from "@/lib/utils";
 
 // Toast 通知
-import { toast } from 'sonner'
+import { toast } from "sonner";
 ```
 
 ### 常见任务命令
 
-| 任务 | 命令 |
-|------|------|
-| 启动开发服务 | `pnpm dev` |
-| 构建生产版本 | `pnpm build` |
-| 类型检查 | `pnpm typecheck` |
-| 代码检查 | `pnpm lint` |
-| 运行测试 | `pnpm test` |
-| 重新生成 API | `pnpm api:generate` |
+| 任务             | 命令                                     |
+| ---------------- | ---------------------------------------- |
+| 启动开发服务     | `pnpm dev`                               |
+| 构建生产版本     | `pnpm build`                             |
+| 类型检查         | `pnpm typecheck`                         |
+| 代码检查         | `pnpm lint`                              |
+| 运行测试         | `pnpm test`                              |
+| 重新生成 API     | `pnpm api:generate`                      |
 | 添加 shadcn 组件 | `pnpm dlx shadcn@latest add [component]` |
 
 ### AI 常见错误提醒
 
-| 错误 | 正确做法 |
-|------|---------|
-| 手写 API 请求 | 使用 Orval 生成的 hooks |
-| 服务端数据存 Zustand | 服务端数据用 TanStack Query |
-| 硬编码 API 地址 | API 地址在 `.env` 和 Orval 配置中 |
-| 忘记处理 loading 状态 | 使用 `isLoading` 显示加载状态 |
-| 忘记处理 error 状态 | 使用 `error` 显示错误信息 |
-| 使用 `index.css` 写样式 | 使用 Tailwind CSS 类名 |
-| 图标使用其他库 | 统一使用 `lucide-react` |
-| 直接修改 `src/api/generated/` | 这是自动生成的，禁止手动修改 |
+| 错误                          | 正确做法                          |
+| ----------------------------- | --------------------------------- |
+| 手写 API 请求                 | 使用 Orval 生成的 hooks           |
+| 服务端数据存 Zustand          | 服务端数据用 TanStack Query       |
+| 硬编码 API 地址               | API 地址在 `.env` 和 Orval 配置中 |
+| 忘记处理 loading 状态         | 使用 `isLoading` 显示加载状态     |
+| 忘记处理 error 状态           | 使用 `error` 显示错误信息         |
+| 使用 `index.css` 写样式       | 使用 Tailwind CSS 类名            |
+| 图标使用其他库                | 统一使用 `lucide-react`           |
+| 直接修改 `src/api/generated/` | 这是自动生成的，禁止手动修改      |

@@ -1,8 +1,8 @@
-import type { PropsWithChildren } from 'react'
-import './app.scss'
+import type { PropsWithChildren } from "react";
+import "./app.scss";
 
 function App({ children }: PropsWithChildren) {
-  return children
+  return children;
 }
 
-export default App
+export default App;

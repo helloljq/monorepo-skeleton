@@ -11,5 +11,5 @@ export interface AssignPermissionsDto {
    * @minItems 1
    * @maxItems 100
    */
-  permissionIds: number[];
+  permissionIds: string[];
 }

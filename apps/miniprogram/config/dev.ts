@@ -1,4 +1,4 @@
-import type { UserConfigExport } from '@tarojs/cli'
+import type { UserConfigExport } from "@tarojs/cli";
 
 export default {
   env: {
@@ -7,4 +7,4 @@ export default {
   defineConstants: {},
   mini: {},
   h5: {},
-} satisfies UserConfigExport
+} satisfies UserConfigExport;

@@ -19,14 +19,14 @@ import {
   PaginationNext,
   PaginationPrevious,
 } from "@/components/ui/pagination";
-import type { Dictionary } from "../types";
+import type { Dictionary } from "@/features/dictionary/types";
 
 interface DictionaryTableProps {
   data: Dictionary[];
   isLoading: boolean;
   pagination: {
     page: number;
-    limit: number;
+    pageSize: number;
     total: number;
     totalPages: number;
   };

@@ -22,7 +22,10 @@ import {
 } from "@/components/ui/form";
 import { useConfigItemControllerRollback } from "@/api/generated/config-center-config-items/config-center-config-items";
 import type { RollbackConfigDto } from "@/api/model";
-import { rollbackConfigSchema, type RollbackConfigData } from "../types";
+import {
+  rollbackConfigSchema,
+  type RollbackConfigData,
+} from "@/features/config-item/types";
 import { toast } from "sonner";
 import { getApiErrorMessage } from "@/lib/api-error";
 
@@ -66,13 +69,14 @@ export function RollbackConfirmDialog({
       queryClient.invalidateQueries({
         predicate: (query) => {
           const queryKey = query.queryKey;
-          // 匹配所有配置项相关的查询
+          const first = queryKey[0];
+          if (typeof first !== "string") return false;
+
+          // 匹配所有配置项相关的查询（与 Orval 生成的 queryKey 保持一致）
           return (
-            queryKey[0] === "/api/v1/config/{namespace}" ||
-            (queryKey[0] === "/api/v1/config/{namespace}/{key}" &&
-              queryKey[2] === configKey) ||
-            (queryKey[0] === "/api/v1/config/{namespace}/{key}/history" &&
-              queryKey[2] === configKey)
+            first === `/v1/config/${namespace}` ||
+            first === `/v1/config/${namespace}/${configKey}` ||
+            first === `/v1/config/${namespace}/${configKey}/history`
           );
         },
       });

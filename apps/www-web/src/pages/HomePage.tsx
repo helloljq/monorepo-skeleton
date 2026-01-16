@@ -1,7 +1,16 @@
-import { Link } from 'react-router-dom';
-import { ArrowRight, CheckCircle2, FlaskConical, Leaf, ShieldCheck, Sparkles, Star } from 'lucide-react';
-import { Header } from '../components/layout/Header';
-import { Footer } from '../components/layout/Footer';
+import { Link } from "react-router-dom";
+import {
+  ArrowRight,
+  CheckCircle2,
+  FlaskConical,
+  Leaf,
+  ShieldCheck,
+  Sparkles,
+  Star,
+} from "lucide-react";
+
+import { Footer } from "@/components/layout/Footer";
+import { Header } from "@/components/layout/Header";
 
 export function HomePage() {
   return (
@@ -25,7 +34,9 @@ export function HomePage() {
               {/* Badge */}
               <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-white/80 border border-brand-100/50 backdrop-blur-md shadow-sm mb-10 animate-fade-in-up">
                 <Sparkles className="w-3.5 h-3.5 text-brand-500 fill-brand-500" />
-                <span className="text-xs font-bold text-brand-800 tracking-widest uppercase">Science Meets Nature</span>
+                <span className="text-xs font-bold text-brand-800 tracking-widest uppercase">
+                  Science Meets Nature
+                </span>
               </div>
 
               {/* Headline */}
@@ -38,8 +49,11 @@ export function HomePage() {
 
               {/* Subheadline */}
               <p className="text-xl sm:text-2xl text-gray-600 mb-12 leading-relaxed max-w-2xl mx-auto font-light">
-                我们致力于运用<span className="font-medium text-gray-900">前沿科学配方</span>，
-                甄选<span className="font-medium text-gray-900">全球纯净原料</span>，
+                我们致力于运用
+                <span className="font-medium text-gray-900">前沿科学配方</span>
+                ， 甄选
+                <span className="font-medium text-gray-900">全球纯净原料</span>
+                ，
                 <br className="hidden sm:block" />
                 为您提供高效、安全的营养解决方案。
               </p>
@@ -68,8 +82,12 @@ export function HomePage() {
         <section id="features" className="py-24 bg-white relative">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="text-center mb-16">
-              <h2 className="text-sm font-bold tracking-[0.2em] text-gray-400 uppercase mb-4">Why Choose Us</h2>
-              <h3 className="text-4xl font-bold text-gray-900 mb-6">为了更好，我们坚持更多</h3>
+              <h2 className="text-sm font-bold tracking-[0.2em] text-gray-400 uppercase mb-4">
+                Why Choose Us
+              </h2>
+              <h3 className="text-4xl font-bold text-gray-900 mb-6">
+                为了更好，我们坚持更多
+              </h3>
               <div className="w-20 h-1.5 bg-brand-500 mx-auto rounded-full"></div>
             </div>
 
@@ -82,7 +100,9 @@ export function HomePage() {
                     <FlaskConical className="h-8 w-8 text-blue-600" />
                   </div>
                   <div>
-                    <h3 className="text-2xl font-bold text-gray-900 mb-3">专业科学配方</h3>
+                    <h3 className="text-2xl font-bold text-gray-900 mb-3">
+                      专业科学配方
+                    </h3>
                     <p className="text-gray-600 leading-relaxed text-lg max-w-md">
                       基于权威科学研究，精准把控每一个成分配比。拒绝概念性添加，确保每一份营养都能发挥真实功效。
                     </p>
@@ -96,7 +116,9 @@ export function HomePage() {
                 <div className="w-16 h-16 bg-white rounded-2xl flex items-center justify-center mb-6 shadow-sm">
                   <Leaf className="h-8 w-8 text-brand-600" />
                 </div>
-                <h3 className="text-2xl font-bold text-gray-900 mb-4">纯净原料</h3>
+                <h3 className="text-2xl font-bold text-gray-900 mb-4">
+                  纯净原料
+                </h3>
                 <p className="text-gray-600 leading-relaxed text-lg mb-8">
                   严选全球优质产地，从源头把控品质。拒绝不必要的添加剂，只留纯粹营养，回归自然本真。
                 </p>
@@ -113,7 +135,9 @@ export function HomePage() {
                 <div className="w-16 h-16 bg-white rounded-2xl flex items-center justify-center mb-6 shadow-sm">
                   <CheckCircle2 className="h-8 w-8 text-orange-500" />
                 </div>
-                <h3 className="text-xl font-bold text-gray-900 mb-3">高效吸收</h3>
+                <h3 className="text-xl font-bold text-gray-900 mb-3">
+                  高效吸收
+                </h3>
                 <p className="text-gray-600 leading-relaxed">
                   采用先进工艺，大幅提升营养利用率，让身体真正受益，不浪费每一份精华。
                 </p>
@@ -124,7 +148,9 @@ export function HomePage() {
                 <div className="w-16 h-16 bg-white rounded-2xl flex items-center justify-center mb-6 shadow-sm">
                   <ShieldCheck className="h-8 w-8 text-purple-600" />
                 </div>
-                <h3 className="text-xl font-bold text-gray-900 mb-3">全程溯源</h3>
+                <h3 className="text-xl font-bold text-gray-900 mb-3">
+                  全程溯源
+                </h3>
                 <p className="text-gray-600 leading-relaxed">
                   生产过程透明化，每一环节都严格把控，品质安全可追溯，让您吃得更放心。
                 </p>
@@ -141,13 +167,20 @@ export function HomePage() {
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
             <div className="flex flex-col md:flex-row justify-between items-end mb-16 gap-4">
               <div>
-                <h2 className="text-4xl font-bold text-gray-900 mb-4">明星产品系列</h2>
+                <h2 className="text-4xl font-bold text-gray-900 mb-4">
+                  明星产品系列
+                </h2>
                 <p className="text-lg text-gray-500 font-light">
                   深受用户喜爱的健康精选，为不同需求定制
                 </p>
               </div>
-              <Link to="/landing/whey-protein" className="hidden md:inline-flex items-center text-brand-700 font-bold hover:text-brand-800 transition-colors group">
-                <span className="border-b-2 border-brand-200 group-hover:border-brand-500 transition-colors pb-1">查看全部产品</span>
+              <Link
+                to="/landing/whey-protein"
+                className="hidden md:inline-flex items-center text-brand-700 font-bold hover:text-brand-800 transition-colors group"
+              >
+                <span className="border-b-2 border-brand-200 group-hover:border-brand-500 transition-colors pb-1">
+                  查看全部产品
+                </span>
                 <ArrowRight className="ml-2 h-5 w-5 transform group-hover:translate-x-1 transition-transform" />
               </Link>
             </div>
@@ -172,12 +205,15 @@ export function HomePage() {
                   />
                 </div>
                 <div className="w-full sm:w-1/2 p-10 flex flex-col justify-center relative">
-                  <div className="text-brand-600 text-xs font-bold tracking-widest uppercase mb-3">Best Seller</div>
+                  <div className="text-brand-600 text-xs font-bold tracking-widest uppercase mb-3">
+                    Best Seller
+                  </div>
                   <h3 className="text-3xl font-bold text-gray-900 mb-4 group-hover:text-brand-700 transition-colors">
                     分离乳清蛋白粉
                   </h3>
                   <p className="text-gray-500 mb-8 leading-relaxed">
-                    92.3% 高纯度，0乳糖0脂肪。<br />
+                    92.3% 高纯度，0乳糖0脂肪。
+                    <br />
                     快速吸收，健身塑形、日常补充的理想选择。
                   </p>
                   <span className="inline-flex items-center text-brand-600 font-bold group-hover:translate-x-2 transition-transform">
@@ -205,12 +241,15 @@ export function HomePage() {
                   />
                 </div>
                 <div className="w-full sm:w-1/2 p-10 flex flex-col justify-center">
-                  <div className="text-orange-500 text-xs font-bold tracking-widest uppercase mb-3">Gut Health</div>
+                  <div className="text-orange-500 text-xs font-bold tracking-widest uppercase mb-3">
+                    Gut Health
+                  </div>
                   <h3 className="text-2xl font-bold text-gray-900 mb-4 group-hover:text-orange-600 transition-colors">
                     水溶性膳食纤维粉
                   </h3>
                   <p className="text-gray-500 mb-8 leading-relaxed line-clamp-3">
-                    精选 Fibersol-2 原料，促进肠道健康，维持血糖平稳。您的日常肠道管家，温和调理。
+                    精选 Fibersol-2
+                    原料，促进肠道健康，维持血糖平稳。您的日常肠道管家，温和调理。
                   </p>
                   <span className="inline-flex items-center text-orange-500 font-bold group-hover:translate-x-2 transition-transform">
                     立即购买 <ArrowRight className="ml-2 h-5 w-5" />
@@ -220,7 +259,10 @@ export function HomePage() {
             </div>
 
             <div className="mt-12 text-center md:hidden">
-              <Link to="/landing/whey-protein" className="inline-flex items-center text-brand-700 font-bold hover:text-brand-800 transition-colors">
+              <Link
+                to="/landing/whey-protein"
+                className="inline-flex items-center text-brand-700 font-bold hover:text-brand-800 transition-colors"
+              >
                 查看全部产品 <ArrowRight className="ml-2 h-4 w-4" />
               </Link>
             </div>

@@ -4,9 +4,10 @@ This file provides guidance to Claude Code when working with this WWW mobile web
 
 ## 项目概述
 
-{{TITLE}} WWW 移动端应用（H5），面向 C 端用户，基于 React 19 + Vite + Tailwind CSS。
+{{TITLE}} WWW 移动端应用（H5），面向 C 端用户，基于 React 18 + Vite + Tailwind CSS。
 
 **定位**: 移动端 H5 应用，需要考虑：
+
 - 移动端优先的 UI/UX 设计
 - 触摸交互优化
 - 性能优化（首屏加载、图片懒加载）
@@ -24,7 +25,7 @@ pnpm api:generate # 从 Swagger 生成 API 代码（如有配置）
 
 ## 技术栈
 
-- React 19 + TypeScript
+- React 18 + TypeScript
 - Vite
 - Tailwind CSS
 - React Router v7
@@ -68,11 +69,11 @@ src/
 ### 移动端页面模板
 
 ```tsx
-import { useNavigate } from 'react-router-dom'
-import { ChevronLeft } from 'lucide-react'
+import { useNavigate } from "react-router-dom";
+import { ChevronLeft } from "lucide-react";
 
 export function ExamplePage() {
-  const navigate = useNavigate()
+  const navigate = useNavigate();
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -86,9 +87,7 @@ export function ExamplePage() {
       </header>
 
       {/* 页面内容 */}
-      <main className="p-4">
-        {/* 内容 */}
-      </main>
+      <main className="p-4">{/* 内容 */}</main>
 
       {/* 底部固定按钮（如需要） */}
       <footer className="fixed bottom-0 left-0 right-0 p-4 bg-white border-t safe-area-inset-bottom">
@@ -97,24 +96,24 @@ export function ExamplePage() {
         </button>
       </footer>
     </div>
-  )
+  );
 }
 ```
 
 ### 列表页模板（带下拉刷新）
 
 ```tsx
-import { useState } from 'react'
+import { useState } from "react";
 
 export function ListPage() {
-  const [refreshing, setRefreshing] = useState(false)
-  const { data, isLoading, refetch } = useXxxControllerFindAll()
+  const [refreshing, setRefreshing] = useState(false);
+  const { data, isLoading, refetch } = useXxxControllerFindAll();
 
   const handleRefresh = async () => {
-    setRefreshing(true)
-    await refetch()
-    setRefreshing(false)
-  }
+    setRefreshing(true);
+    await refetch();
+    setRefreshing(false);
+  };
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -141,20 +140,20 @@ export function ListPage() {
         </div>
       )}
     </div>
-  )
+  );
 }
 ```
 
 ### 移动端设计规范
 
-| 元素 | 规范 |
-|------|------|
-| 最小触摸区域 | 44x44px |
-| 页面内边距 | 16px (`p-4`) |
-| 卡片圆角 | 8px (`rounded-lg`) |
-| 主按钮高度 | 48px (`h-12`) |
-| 导航栏高度 | 48px (`h-12`) |
-| 字体大小 | 正文 14px，标题 16-18px |
+| 元素         | 规范                    |
+| ------------ | ----------------------- |
+| 最小触摸区域 | 44x44px                 |
+| 页面内边距   | 16px (`p-4`)            |
+| 卡片圆角     | 8px (`rounded-lg`)      |
+| 主按钮高度   | 48px (`h-12`)           |
+| 导航栏高度   | 48px (`h-12`)           |
+| 字体大小     | 正文 14px，标题 16-18px |
 
 ### 安全区域适配
 
@@ -170,19 +169,19 @@ export function ListPage() {
 
 ### 常见任务命令
 
-| 任务 | 命令 |
-|------|------|
-| 启动开发服务 | `pnpm dev` |
-| 构建生产版本 | `pnpm build` |
-| 类型检查 | `pnpm typecheck` |
-| 代码检查 | `pnpm lint` |
+| 任务         | 命令             |
+| ------------ | ---------------- |
+| 启动开发服务 | `pnpm dev`       |
+| 构建生产版本 | `pnpm build`     |
+| 类型检查     | `pnpm typecheck` |
+| 代码检查     | `pnpm lint`      |
 
 ### AI 常见错误提醒
 
-| 错误 | 正确做法 |
-|------|---------|
-| 使用桌面端 UI 模式 | 移动端优先，触摸友好 |
-| 按钮/链接太小 | 最小触摸区域 44x44px |
-| 忽略安全区域 | 使用 `safe-area-inset-*` |
-| 使用 hover 效果 | 移动端应使用 active 效果 |
-| 固定底部内容遮挡 | 添加对应高度的 padding-bottom |
+| 错误               | 正确做法                      |
+| ------------------ | ----------------------------- |
+| 使用桌面端 UI 模式 | 移动端优先，触摸友好          |
+| 按钮/链接太小      | 最小触摸区域 44x44px          |
+| 忽略安全区域       | 使用 `safe-area-inset-*`      |
+| 使用 hover 效果    | 移动端应使用 active 效果      |
+| 固定底部内容遮挡   | 添加对应高度的 padding-bottom |

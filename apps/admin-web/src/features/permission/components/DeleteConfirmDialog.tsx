@@ -11,7 +11,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { usePermissionControllerRemove } from "@/api/generated/permission/permission";
-import type { Permission } from "../types";
+import type { Permission } from "@/features/permission/types";
 
 interface DeleteConfirmDialogProps {
   open: boolean;

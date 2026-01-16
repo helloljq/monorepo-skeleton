@@ -40,14 +40,14 @@ import {
   configItemFormSchema,
   type ConfigItemFormData,
   type ConfigItem,
-} from "../types";
+} from "@/features/config-item/types";
 import { toast } from "sonner";
 import { getApiErrorMessage } from "@/lib/api-error";
 import {
   parseConfigValue,
   serializeConfigValue,
   ValueParseError,
-} from "../utils/valueParser";
+} from "@/features/config-item/utils/value-parser";
 
 export function ConfigItemFormPage() {
   const navigate = useNavigate();

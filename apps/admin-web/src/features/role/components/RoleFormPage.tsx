@@ -30,7 +30,11 @@ import {
   useRoleControllerUpdate,
   useRoleControllerFindOne,
 } from "@/api/generated/role/role";
-import { roleFormSchema, type RoleFormData, type Role } from "../types";
+import {
+  roleFormSchema,
+  type RoleFormData,
+  type Role,
+} from "@/features/role/types";
 import { isApiError } from "@/lib/api-error";
 
 export function RoleFormPage() {
@@ -39,7 +43,7 @@ export function RoleFormPage() {
   const isEditing = !!id;
 
   const { data: editingItem, isLoading: isLoadingDetail } =
-    useRoleControllerFindOne<Role>(Number(id), {
+    useRoleControllerFindOne<Role>(id ?? "", {
       query: { enabled: isEditing },
     });
 
@@ -71,7 +75,7 @@ export function RoleFormPage() {
     try {
       if (isEditing && id) {
         await updateMutation.mutateAsync({
-          id: Number(id),
+          id,
           data: {
             name: data.name,
             description: data.description || undefined,

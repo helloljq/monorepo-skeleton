@@ -200,7 +200,7 @@ export function useUserControllerFindAll<
  * @summary 获取用户详情
  */
 export const userControllerFindOne = (
-  id: number,
+  id: string,
   options?: SecondParameter<typeof customFetch>,
   signal?: AbortSignal,
 ) => {
@@ -210,7 +210,7 @@ export const userControllerFindOne = (
   );
 };
 
-export const getUserControllerFindOneQueryKey = (id?: number) => {
+export const getUserControllerFindOneQueryKey = (id?: string) => {
   return [`/v1/users/${id}`] as const;
 };
 
@@ -218,7 +218,7 @@ export const getUserControllerFindOneQueryOptions = <
   TData = Awaited<ReturnType<typeof userControllerFindOne>>,
   TError = unknown,
 >(
-  id: number,
+  id: string,
   options?: {
     query?: Partial<
       UseQueryOptions<
@@ -260,7 +260,7 @@ export function useUserControllerFindOne<
   TData = Awaited<ReturnType<typeof userControllerFindOne>>,
   TError = unknown,
 >(
-  id: number,
+  id: string,
   options: {
     query: Partial<
       UseQueryOptions<
@@ -287,7 +287,7 @@ export function useUserControllerFindOne<
   TData = Awaited<ReturnType<typeof userControllerFindOne>>,
   TError = unknown,
 >(
-  id: number,
+  id: string,
   options?: {
     query?: Partial<
       UseQueryOptions<
@@ -314,7 +314,7 @@ export function useUserControllerFindOne<
   TData = Awaited<ReturnType<typeof userControllerFindOne>>,
   TError = unknown,
 >(
-  id: number,
+  id: string,
   options?: {
     query?: Partial<
       UseQueryOptions<
@@ -337,7 +337,7 @@ export function useUserControllerFindOne<
   TData = Awaited<ReturnType<typeof userControllerFindOne>>,
   TError = unknown,
 >(
-  id: number,
+  id: string,
   options?: {
     query?: Partial<
       UseQueryOptions<
@@ -368,7 +368,7 @@ export function useUserControllerFindOne<
  * @summary 获取用户角色列表
  */
 export const userControllerFindUserRoles = (
-  id: number,
+  id: string,
   options?: SecondParameter<typeof customFetch>,
   signal?: AbortSignal,
 ) => {
@@ -378,7 +378,7 @@ export const userControllerFindUserRoles = (
   );
 };
 
-export const getUserControllerFindUserRolesQueryKey = (id?: number) => {
+export const getUserControllerFindUserRolesQueryKey = (id?: string) => {
   return [`/v1/users/${id}/roles`] as const;
 };
 
@@ -386,7 +386,7 @@ export const getUserControllerFindUserRolesQueryOptions = <
   TData = Awaited<ReturnType<typeof userControllerFindUserRoles>>,
   TError = unknown,
 >(
-  id: number,
+  id: string,
   options?: {
     query?: Partial<
       UseQueryOptions<
@@ -428,7 +428,7 @@ export function useUserControllerFindUserRoles<
   TData = Awaited<ReturnType<typeof userControllerFindUserRoles>>,
   TError = unknown,
 >(
-  id: number,
+  id: string,
   options: {
     query: Partial<
       UseQueryOptions<
@@ -455,7 +455,7 @@ export function useUserControllerFindUserRoles<
   TData = Awaited<ReturnType<typeof userControllerFindUserRoles>>,
   TError = unknown,
 >(
-  id: number,
+  id: string,
   options?: {
     query?: Partial<
       UseQueryOptions<
@@ -482,7 +482,7 @@ export function useUserControllerFindUserRoles<
   TData = Awaited<ReturnType<typeof userControllerFindUserRoles>>,
   TError = unknown,
 >(
-  id: number,
+  id: string,
   options?: {
     query?: Partial<
       UseQueryOptions<
@@ -505,7 +505,7 @@ export function useUserControllerFindUserRoles<
   TData = Awaited<ReturnType<typeof userControllerFindUserRoles>>,
   TError = unknown,
 >(
-  id: number,
+  id: string,
   options?: {
     query?: Partial<
       UseQueryOptions<
@@ -536,7 +536,7 @@ export function useUserControllerFindUserRoles<
  * @summary 为用户分配角色
  */
 export const userControllerAssignRole = (
-  id: number,
+  id: string,
   assignRoleDto: AssignRoleDto,
   options?: SecondParameter<typeof customFetch>,
   signal?: AbortSignal,
@@ -560,14 +560,14 @@ export const getUserControllerAssignRoleMutationOptions = <
   mutation?: UseMutationOptions<
     Awaited<ReturnType<typeof userControllerAssignRole>>,
     TError,
-    { id: number; data: AssignRoleDto },
+    { id: string; data: AssignRoleDto },
     TContext
   >;
   request?: SecondParameter<typeof customFetch>;
 }): UseMutationOptions<
   Awaited<ReturnType<typeof userControllerAssignRole>>,
   TError,
-  { id: number; data: AssignRoleDto },
+  { id: string; data: AssignRoleDto },
   TContext
 > => {
   const mutationKey = ["userControllerAssignRole"];
@@ -581,7 +581,7 @@ export const getUserControllerAssignRoleMutationOptions = <
 
   const mutationFn: MutationFunction<
     Awaited<ReturnType<typeof userControllerAssignRole>>,
-    { id: number; data: AssignRoleDto }
+    { id: string; data: AssignRoleDto }
   > = (props) => {
     const { id, data } = props ?? {};
 
@@ -608,7 +608,7 @@ export const useUserControllerAssignRole = <
     mutation?: UseMutationOptions<
       Awaited<ReturnType<typeof userControllerAssignRole>>,
       TError,
-      { id: number; data: AssignRoleDto },
+      { id: string; data: AssignRoleDto },
       TContext
     >;
     request?: SecondParameter<typeof customFetch>;
@@ -617,7 +617,7 @@ export const useUserControllerAssignRole = <
 ): UseMutationResult<
   Awaited<ReturnType<typeof userControllerAssignRole>>,
   TError,
-  { id: number; data: AssignRoleDto },
+  { id: string; data: AssignRoleDto },
   TContext
 > => {
   const mutationOptions = getUserControllerAssignRoleMutationOptions(options);
@@ -628,7 +628,7 @@ export const useUserControllerAssignRole = <
  * @summary 批量为用户分配角色（替换模式）
  */
 export const userControllerAssignRoles = (
-  id: number,
+  id: string,
   assignRolesDto: AssignRolesDto,
   options?: SecondParameter<typeof customFetch>,
   signal?: AbortSignal,
@@ -652,14 +652,14 @@ export const getUserControllerAssignRolesMutationOptions = <
   mutation?: UseMutationOptions<
     Awaited<ReturnType<typeof userControllerAssignRoles>>,
     TError,
-    { id: number; data: AssignRolesDto },
+    { id: string; data: AssignRolesDto },
     TContext
   >;
   request?: SecondParameter<typeof customFetch>;
 }): UseMutationOptions<
   Awaited<ReturnType<typeof userControllerAssignRoles>>,
   TError,
-  { id: number; data: AssignRolesDto },
+  { id: string; data: AssignRolesDto },
   TContext
 > => {
   const mutationKey = ["userControllerAssignRoles"];
@@ -673,7 +673,7 @@ export const getUserControllerAssignRolesMutationOptions = <
 
   const mutationFn: MutationFunction<
     Awaited<ReturnType<typeof userControllerAssignRoles>>,
-    { id: number; data: AssignRolesDto }
+    { id: string; data: AssignRolesDto }
   > = (props) => {
     const { id, data } = props ?? {};
 
@@ -700,7 +700,7 @@ export const useUserControllerAssignRoles = <
     mutation?: UseMutationOptions<
       Awaited<ReturnType<typeof userControllerAssignRoles>>,
       TError,
-      { id: number; data: AssignRolesDto },
+      { id: string; data: AssignRolesDto },
       TContext
     >;
     request?: SecondParameter<typeof customFetch>;
@@ -709,7 +709,7 @@ export const useUserControllerAssignRoles = <
 ): UseMutationResult<
   Awaited<ReturnType<typeof userControllerAssignRoles>>,
   TError,
-  { id: number; data: AssignRolesDto },
+  { id: string; data: AssignRolesDto },
   TContext
 > => {
   const mutationOptions = getUserControllerAssignRolesMutationOptions(options);
@@ -720,8 +720,8 @@ export const useUserControllerAssignRoles = <
  * @summary 移除用户的角色
  */
 export const userControllerRemoveRole = (
-  id: number,
-  roleId: number,
+  id: string,
+  roleId: string,
   options?: SecondParameter<typeof customFetch>,
 ) => {
   return customFetch<void>(
@@ -737,14 +737,14 @@ export const getUserControllerRemoveRoleMutationOptions = <
   mutation?: UseMutationOptions<
     Awaited<ReturnType<typeof userControllerRemoveRole>>,
     TError,
-    { id: number; roleId: number },
+    { id: string; roleId: string },
     TContext
   >;
   request?: SecondParameter<typeof customFetch>;
 }): UseMutationOptions<
   Awaited<ReturnType<typeof userControllerRemoveRole>>,
   TError,
-  { id: number; roleId: number },
+  { id: string; roleId: string },
   TContext
 > => {
   const mutationKey = ["userControllerRemoveRole"];
@@ -758,7 +758,7 @@ export const getUserControllerRemoveRoleMutationOptions = <
 
   const mutationFn: MutationFunction<
     Awaited<ReturnType<typeof userControllerRemoveRole>>,
-    { id: number; roleId: number }
+    { id: string; roleId: string }
   > = (props) => {
     const { id, roleId } = props ?? {};
 
@@ -785,7 +785,7 @@ export const useUserControllerRemoveRole = <
     mutation?: UseMutationOptions<
       Awaited<ReturnType<typeof userControllerRemoveRole>>,
       TError,
-      { id: number; roleId: number },
+      { id: string; roleId: string },
       TContext
     >;
     request?: SecondParameter<typeof customFetch>;
@@ -794,7 +794,7 @@ export const useUserControllerRemoveRole = <
 ): UseMutationResult<
   Awaited<ReturnType<typeof userControllerRemoveRole>>,
   TError,
-  { id: number; roleId: number },
+  { id: string; roleId: string },
   TContext
 > => {
   const mutationOptions = getUserControllerRemoveRoleMutationOptions(options);

@@ -95,41 +95,41 @@ src/pages/{name}/
 ```typescript
 export default defineAppConfig({
   pages: [
-    'pages/index/index',
-    'pages/{name}/index',  // 新增页面
+    "pages/index/index",
+    "pages/{name}/index", // 新增页面
   ],
   // ...
-})
+});
 ```
 
 ### 页面模板
 
 ```tsx
 // src/pages/{name}/index.tsx
-import { View, Text } from '@tarojs/components'
-import { useLoad } from '@tarojs/taro'
-import './index.scss'
+import { View, Text } from "@tarojs/components";
+import { useLoad } from "@tarojs/taro";
+import "./index.scss";
 
 export default function PageName() {
   useLoad(() => {
-    console.log('Page loaded.')
-  })
+    console.log("Page loaded.");
+  });
 
   return (
     <View className="page-name">
       <Text>页面内容</Text>
     </View>
-  )
+  );
 }
 ```
 
 ```typescript
 // src/pages/{name}/index.config.ts
 export default definePageConfig({
-  navigationBarTitleText: '页面标题',
-  enableShareAppMessage: true,  // 允许分享
-  enableShareTimeline: true,    // 允许分享朋友圈
-})
+  navigationBarTitleText: "页面标题",
+  enableShareAppMessage: true, // 允许分享
+  enableShareTimeline: true, // 允许分享朋友圈
+});
 ```
 
 ```scss
@@ -144,34 +144,34 @@ export default definePageConfig({
 ### 列表页模板
 
 ```tsx
-import { View, Text, ScrollView } from '@tarojs/components'
-import { useState, useEffect } from 'react'
-import Taro from '@tarojs/taro'
-import './index.scss'
+import { View, Text, ScrollView } from "@tarojs/components";
+import { useState, useEffect } from "react";
+import Taro from "@tarojs/taro";
+import "./index.scss";
 
 export default function ListPage() {
-  const [list, setList] = useState<Item[]>([])
-  const [loading, setLoading] = useState(true)
-  const [refreshing, setRefreshing] = useState(false)
+  const [list, setList] = useState<Item[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
 
   const fetchList = async () => {
     try {
-      const res = await api.getList()
-      setList(res.data)
+      const res = await api.getList();
+      setList(res.data);
     } finally {
-      setLoading(false)
-      setRefreshing(false)
+      setLoading(false);
+      setRefreshing(false);
     }
-  }
+  };
 
   useEffect(() => {
-    fetchList()
-  }, [])
+    fetchList();
+  }, []);
 
   const handleRefresh = () => {
-    setRefreshing(true)
-    fetchList()
-  }
+    setRefreshing(true);
+    fetchList();
+  };
 
   return (
     <ScrollView
@@ -193,47 +193,47 @@ export default function ListPage() {
         ))
       )}
     </ScrollView>
-  )
+  );
 }
 ```
 
 ### Taro API 常用操作
 
 ```typescript
-import Taro from '@tarojs/taro'
+import Taro from "@tarojs/taro";
 
 // 页面导航
-Taro.navigateTo({ url: '/pages/detail/index?id=123' })
-Taro.redirectTo({ url: '/pages/login/index' })
-Taro.switchTab({ url: '/pages/index/index' })  // tabBar 页面
-Taro.navigateBack({ delta: 1 })
+Taro.navigateTo({ url: "/pages/detail/index?id=123" });
+Taro.redirectTo({ url: "/pages/login/index" });
+Taro.switchTab({ url: "/pages/index/index" }); // tabBar 页面
+Taro.navigateBack({ delta: 1 });
 
 // 获取页面参数
-import { useRouter } from '@tarojs/taro'
-const router = useRouter()
-const { id } = router.params
+import { useRouter } from "@tarojs/taro";
+const router = useRouter();
+const { id } = router.params;
 
 // 显示提示
-Taro.showToast({ title: '操作成功', icon: 'success' })
-Taro.showLoading({ title: '加载中' })
-Taro.hideLoading()
+Taro.showToast({ title: "操作成功", icon: "success" });
+Taro.showLoading({ title: "加载中" });
+Taro.hideLoading();
 
 // 弹窗确认
 const { confirm } = await Taro.showModal({
-  title: '提示',
-  content: '确定要删除吗？',
-})
+  title: "提示",
+  content: "确定要删除吗？",
+});
 
 // 本地存储
-Taro.setStorageSync('key', value)
-const value = Taro.getStorageSync('key')
+Taro.setStorageSync("key", value);
+const value = Taro.getStorageSync("key");
 
 // 获取用户信息
-const { code } = await Taro.login()  // 获取登录 code
+const { code } = await Taro.login(); // 获取登录 code
 
 // 系统信息
-const systemInfo = Taro.getSystemInfoSync()
-const { statusBarHeight, screenHeight, safeArea } = systemInfo
+const systemInfo = Taro.getSystemInfoSync();
+const { statusBarHeight, screenHeight, safeArea } = systemInfo;
 ```
 
 ### 组件使用规范
@@ -263,10 +263,10 @@ import { View, Text, Image, Button, Input, ScrollView } from '@tarojs/components
 // 使用 rpx 单位（基于 750 设计稿）
 // 设计稿 px 值直接写成 rpx
 .container {
-  width: 750rpx;          // 满屏宽度
-  padding: 32rpx;         // 设计稿 32px
-  font-size: 28rpx;       // 设计稿 28px
-  border-radius: 16rpx;   // 设计稿 16px
+  width: 750rpx; // 满屏宽度
+  padding: 32rpx; // 设计稿 32px
+  font-size: 28rpx; // 设计稿 28px
+  border-radius: 16rpx; // 设计稿 16px
 }
 
 // 常用尺寸参考（750 设计稿）
@@ -315,12 +315,12 @@ const handleGetPhone = async (e) => {
 
 ### 常见任务命令
 
-| 任务 | 命令 |
-|------|------|
-| 启动开发 | `pnpm dev` |
-| 构建生产版本 | `pnpm build` |
-| 类型检查 | `pnpm typecheck` |
-| 代码检查 | `pnpm lint` |
+| 任务         | 命令             |
+| ------------ | ---------------- |
+| 启动开发     | `pnpm dev`       |
+| 构建生产版本 | `pnpm build`     |
+| 类型检查     | `pnpm typecheck` |
+| 代码检查     | `pnpm lint`      |
 
 ### Node.js 版本兼容性
 
@@ -336,12 +336,12 @@ nvm use 20
 
 ### AI 常见错误提醒
 
-| 错误 | 正确做法 |
-|------|---------|
-| 使用 HTML 标签 | 使用 Taro 组件 (View, Text, Image) |
-| 使用 px 单位 | 使用 rpx 单位 (750 设计稿) |
-| 直接用 fetch/axios | 使用 Taro.request 或封装的 api |
-| 忘记注册页面路由 | 在 app.config.ts 的 pages 中添加 |
-| 使用 window/document | 小程序无 DOM API，使用 Taro API |
-| Node.js 22 运行 | 使用 Node.js 20 或更低版本 |
-| 使用 CSS hover | 小程序不支持，用 active 或 data-* 状态 |
+| 错误                 | 正确做法                                |
+| -------------------- | --------------------------------------- |
+| 使用 HTML 标签       | 使用 Taro 组件 (View, Text, Image)      |
+| 使用 px 单位         | 使用 rpx 单位 (750 设计稿)              |
+| 直接用 fetch/axios   | 使用 Taro.request 或封装的 api          |
+| 忘记注册页面路由     | 在 app.config.ts 的 pages 中添加        |
+| 使用 window/document | 小程序无 DOM API，使用 Taro API         |
+| Node.js 22 运行      | 使用 Node.js 20 或更低版本              |
+| 使用 CSS hover       | 小程序不支持，用 active 或 data-\* 状态 |

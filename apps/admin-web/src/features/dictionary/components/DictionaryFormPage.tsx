@@ -36,7 +36,7 @@ import {
   dictionaryFormSchema,
   type DictionaryFormData,
   type Dictionary,
-} from "../types";
+} from "@/features/dictionary/types";
 
 export function DictionaryFormPage() {
   const navigate = useNavigate();
@@ -46,7 +46,7 @@ export function DictionaryFormPage() {
   const [jsonError, setJsonError] = useState<string | null>(null);
 
   const { data: editingItem, isLoading: isLoadingDetail } =
-    useDictionaryControllerFindOne<Dictionary>(Number(id), {
+    useDictionaryControllerFindOne<Dictionary>(id ?? "", {
       query: { enabled: isEditing },
     });
 
@@ -111,7 +111,7 @@ export function DictionaryFormPage() {
     try {
       if (isEditing && id) {
         await updateMutation.mutateAsync({
-          id: Number(id),
+          id,
           data: {
             value: valueToSubmit as { [key: string]: unknown },
             label: data.label,

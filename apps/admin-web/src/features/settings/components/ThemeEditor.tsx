@@ -29,7 +29,7 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { getThemePreset } from "@/config/theme-presets";
 import { getResolvedColorMode } from "@/lib/theme-utils";
-import { useSettingsStore } from "@/stores/settingsStore";
+import { useSettingsStore } from "@/stores/settings-store";
 import type { ThemeColors } from "@/types/theme";
 
 // 颜色分组配置

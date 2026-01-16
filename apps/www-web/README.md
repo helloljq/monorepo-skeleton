@@ -1,6 +1,6 @@
 # @{{NAME}}/www-web
 
-{{TITLE}} WWW 移动端应用，基于 React 19 + Vite + Tailwind CSS。
+{{TITLE}} WWW 移动端应用，基于 React 18 + Vite + Tailwind CSS。
 
 ## 开发
 

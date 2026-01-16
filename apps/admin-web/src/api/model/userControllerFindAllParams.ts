@@ -9,10 +9,9 @@ import type { UserControllerFindAllStatus } from "./userControllerFindAllStatus"
 
 export type UserControllerFindAllParams = {
   /**
-   * 用户ID（精确查询）
-   * @maximum 9007199254740991
+   * 用户 ID（Public ID，UUID，精确查询）
    */
-  id?: number;
+  id?: string;
   /**
    * 邮箱（模糊查询）
    */
@@ -22,10 +21,9 @@ export type UserControllerFindAllParams = {
    */
   name?: string;
   /**
-   * 角色ID（精确查询）
-   * @maximum 9007199254740991
+   * 角色 ID（Public ID，UUID，精确查询）
    */
-  roleId?: number;
+  roleId?: string;
   /**
    * 用户状态（ACTIVE|DISABLED|PENDING）
    */
@@ -37,9 +35,14 @@ export type UserControllerFindAllParams = {
    */
   page?: number;
   /**
-   * 每页数量（1-1000）
+   * 每页数量（1-100）
    * @minimum 1
    * @maximum 100
+   */
+  pageSize?: number;
+  /**
+   * 兼容参数：limit（迁移期保留；请使用 pageSize）
+   * @deprecated
    */
   limit?: number;
 };

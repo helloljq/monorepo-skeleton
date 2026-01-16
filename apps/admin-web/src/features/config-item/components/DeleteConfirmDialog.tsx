@@ -10,7 +10,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { useConfigItemControllerRemove } from "@/api/generated/config-center-config-items/config-center-config-items";
-import type { ConfigItem } from "../types";
+import type { ConfigItem } from "@/features/config-item/types";
 import { toast } from "sonner";
 import { getApiErrorMessage } from "@/lib/api-error";
 

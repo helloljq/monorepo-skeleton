@@ -11,7 +11,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { useDictionaryControllerRemove } from "@/api/generated/dictionary/dictionary";
-import type { Dictionary } from "../types";
+import type { Dictionary } from "@/features/dictionary/types";
 
 interface DeleteConfirmDialogProps {
   open: boolean;

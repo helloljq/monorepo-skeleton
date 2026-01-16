@@ -1,9 +1,9 @@
 export default defineAppConfig({
-  pages: ['pages/index/index'],
+  pages: ["pages/index/index"],
   window: {
-    backgroundTextStyle: 'light',
-    navigationBarBackgroundColor: '#fff',
-    navigationBarTitleText: '{{TITLE}}',
-    navigationBarTextStyle: 'black',
+    backgroundTextStyle: "light",
+    navigationBarBackgroundColor: "#fff",
+    navigationBarTitleText: "Monorepo Skeleton",
+    navigationBarTextStyle: "black",
   },
-})
+});

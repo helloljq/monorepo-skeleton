@@ -19,35 +19,36 @@ import {
   useUserControllerFindUserRoles,
 } from "@/api/generated/user/user";
 import { useRoleControllerFindAll } from "@/api/generated/role/role";
-import type { User, UserRole } from "../types";
-import type { RoleListResponse } from "@/features/role/types";
+import type { RoleListResponse } from "@/features/role";
+import type { User, UserRolesResponse } from "@/features/user/types";
 
 export function UserRolesPage() {
   const navigate = useNavigate();
   const { id } = useParams<{ id: string }>();
-  const [selectedRoleIds, setSelectedRoleIds] = useState<number[]>([]);
+  const [selectedRoleIds, setSelectedRoleIds] = useState<string[]>([]);
 
   // 获取用户详情
   const { data: user, isLoading: isLoadingUser } =
-    useUserControllerFindOne<User>(Number(id));
+    useUserControllerFindOne<User>(id ?? "", { query: { enabled: !!id } });
 
   // 获取所有角色（不分页）
   const { data: rolesData, isLoading: isLoadingRoles } =
     useRoleControllerFindAll<RoleListResponse>({
       page: 1,
-      limit: 1000, // 获取所有角色
+      pageSize: 1000, // 尝试一次性拉取（服务端会按 MaxLimit 兜底裁剪）
     });
 
   // 获取用户已有角色
   const { data: userRoles, isLoading: isLoadingUserRoles } =
-    useUserControllerFindUserRoles<UserRole[]>(Number(id));
+    useUserControllerFindUserRoles<UserRolesResponse>(id ?? "", {
+      query: { enabled: !!id },
+    });
 
   const assignRolesMutation = useUserControllerAssignRoles();
 
   // 初始化已选中的角色
   const initialSelectedIds = useMemo(() => {
-    if (!userRoles) return [];
-    return Array.isArray(userRoles) ? userRoles.map((r: UserRole) => r.id) : [];
+    return userRoles?.items?.map((r) => r.role.id) ?? [];
   }, [userRoles]);
 
   useEffect(() => {
@@ -57,7 +58,7 @@ export function UserRolesPage() {
     }
   }, [initialSelectedIds]);
 
-  const handleToggleRole = (roleId: number) => {
+  const handleToggleRole = (roleId: string) => {
     setSelectedRoleIds((prev) =>
       prev.includes(roleId)
         ? prev.filter((id) => id !== roleId)
@@ -70,7 +71,7 @@ export function UserRolesPage() {
 
     try {
       await assignRolesMutation.mutateAsync({
-        id: Number(id),
+        id,
         data: {
           roleIds: selectedRoleIds,
         },
@@ -116,7 +117,7 @@ export function UserRolesPage() {
     );
   }
 
-  const roles = rolesData?.data || [];
+  const roles = rolesData?.items || [];
 
   const getStatusBadge = (status: User["status"]) => {
     const variants = {

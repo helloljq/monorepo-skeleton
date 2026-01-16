@@ -8,8 +8,8 @@
 import type { IdentityItemDtoProvider } from "./identityItemDtoProvider";
 
 export interface IdentityItemDto {
-  /** Identity ID */
-  id: number;
+  /** Identity ID（Public ID，UUID） */
+  id: string;
   /** Identity provider */
   provider: IdentityItemDtoProvider;
   /** Provider ID (masked for security) */

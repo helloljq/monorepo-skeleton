@@ -1,10 +1,10 @@
 # @{{NAME}}/admin-web
 
-{{TITLE}}管理后台，基于 React 19 + Vite。
+{{TITLE}}管理后台，基于 React 18 + Vite。
 
 ## 技术栈
 
-- React 19 + TypeScript
+- React 18 + TypeScript
 - Vite
 - shadcn/ui + Tailwind CSS
 - TanStack Query + Zustand

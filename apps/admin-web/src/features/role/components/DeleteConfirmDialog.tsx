@@ -11,7 +11,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { useRoleControllerRemove } from "@/api/generated/role/role";
-import type { Role } from "../types";
+import type { Role } from "@/features/role/types";
 
 interface DeleteConfirmDialogProps {
   open: boolean;

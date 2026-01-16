@@ -1,7 +1,7 @@
 import { Undo, Eye, GitCompare } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import type { ConfigItemHistory } from "../types";
+import type { ConfigItemHistory } from "@/features/config-item/types";
 import { formatDateTime } from "@/lib/utils";
 import { TableLoading, TableEmpty } from "@/components/common/TableStates";
 import { ValueTypeBadge } from "./ValueTypeBadge";
@@ -32,6 +32,16 @@ export function ConfigItemHistoryTable({
   // 前端排序确保按版本倒序排列（最新版本在前）
   const sortedData = [...data].sort((a, b) => b.version - a.version);
   const latestVersion = sortedData[0]?.version || 0;
+
+  const getChangeTypeLabel = (type: ConfigItemHistory["changeType"]) => {
+    const map: Record<ConfigItemHistory["changeType"], string> = {
+      CREATE: "创建",
+      UPDATE: "更新",
+      DELETE: "删除",
+      ROLLBACK: "回滚",
+    };
+    return map[type] ?? type;
+  };
 
   const formatValue = (value: unknown): string => {
     if (typeof value === "object") {
@@ -80,7 +90,7 @@ export function ConfigItemHistoryTable({
           </thead>
           <tbody>
             {sortedData.map((item) => (
-              <tr key={item.id} className="border-b hover:bg-muted/50">
+              <tr key={item.version} className="border-b hover:bg-muted/50">
                 <td className="px-4 py-3">
                   <div className="flex items-center gap-2">
                     <span className="font-mono text-sm">v{item.version}</span>
@@ -89,6 +99,9 @@ export function ConfigItemHistoryTable({
                         当前版本
                       </Badge>
                     )}
+                    <Badge variant="outline" className="text-xs">
+                      {getChangeTypeLabel(item.changeType)}
+                    </Badge>
                   </div>
                 </td>
                 <td className="px-4 py-3">
@@ -107,10 +120,21 @@ export function ConfigItemHistoryTable({
                   </button>
                 </td>
                 <td className="px-4 py-3 text-sm">
-                  {item.operatorName}
-                  <span className="ml-2 text-xs text-muted-foreground">
-                    (ID: {item.operatorId})
-                  </span>
+                  <div className="space-y-1">
+                    <div>
+                      {item.operator?.name ?? "-"}
+                      {item.operator?.id && (
+                        <span className="ml-2 text-xs text-muted-foreground">
+                          (ID: {item.operator.id})
+                        </span>
+                      )}
+                    </div>
+                    {item.changeNote && (
+                      <div className="text-xs text-muted-foreground">
+                        {item.changeNote}
+                      </div>
+                    )}
+                  </div>
                 </td>
                 <td className="px-4 py-3 text-sm text-muted-foreground">
                   {formatDateTime(item.createdAt)}

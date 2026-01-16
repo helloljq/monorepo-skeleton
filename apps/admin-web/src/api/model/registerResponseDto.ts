@@ -7,8 +7,8 @@
  */
 
 export interface RegisterResponseDto {
-  /** 用户 ID */
-  id: number;
+  /** 用户 ID（Public ID，UUID） */
+  id: string;
   /** 邮箱 */
   email: string;
   /**

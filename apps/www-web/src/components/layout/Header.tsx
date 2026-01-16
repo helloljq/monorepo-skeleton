@@ -1,7 +1,7 @@
-import { Link } from 'react-router-dom';
-import { Menu } from 'lucide-react';
-import { useState } from 'react';
-import Logo from '../../assets/logo.svg';
+import { Link } from "react-router-dom";
+import { Menu } from "lucide-react";
+import { useState } from "react";
+import Logo from "@/assets/logo.svg";
 
 export function Header() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -15,7 +15,7 @@ export function Header() {
             <Link to="/" className="flex items-center">
               <img
                 src={Logo}
-                alt="{{TITLE}}"
+                alt="Monorepo Skeleton"
                 className="h-7 md:h-10 w-auto"
               />
             </Link>
@@ -23,20 +23,32 @@ export function Header() {
 
           {/* Desktop Navigation */}
           <nav className="hidden md:flex space-x-8">
-            <Link to="/" className="text-gray-600 hover:text-brand-600 px-3 py-2 text-sm font-medium transition-colors">
+            <Link
+              to="/"
+              className="text-gray-600 hover:text-brand-600 px-3 py-2 text-sm font-medium transition-colors"
+            >
               首页
             </Link>
-            <Link to="/landing/whey-protein" className="text-gray-600 hover:text-brand-600 px-3 py-2 text-sm font-medium transition-colors">
+            <Link
+              to="/landing/whey-protein"
+              className="text-gray-600 hover:text-brand-600 px-3 py-2 text-sm font-medium transition-colors"
+            >
               产品
             </Link>
-            <Link to="/about" className="text-gray-600 hover:text-brand-600 px-3 py-2 text-sm font-medium transition-colors">
+            <Link
+              to="/about"
+              className="text-gray-600 hover:text-brand-600 px-3 py-2 text-sm font-medium transition-colors"
+            >
               关于我们
             </Link>
           </nav>
 
           {/* CTA Button */}
           <div className="hidden md:flex items-center">
-            <Link to="/about" className="bg-brand-600 hover:bg-brand-700 text-white px-4 py-2 rounded-full text-sm font-medium transition-colors shadow-sm hover:shadow-md">
+            <Link
+              to="/about"
+              className="bg-brand-600 hover:bg-brand-700 text-white px-4 py-2 rounded-full text-sm font-medium transition-colors shadow-sm hover:shadow-md"
+            >
               联系我们
             </Link>
           </div>

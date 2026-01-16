@@ -5,7 +5,7 @@ import { ColorPicker } from "@/components/common/ColorPicker";
 import { Button } from "@/components/ui/button";
 import { getThemePreset } from "@/config/theme-presets";
 import { getResolvedColorMode } from "@/lib/theme-utils";
-import { useSettingsStore } from "@/stores/settingsStore";
+import { useSettingsStore } from "@/stores/settings-store";
 import type { ThemeColors } from "@/types/theme";
 
 // 主要可自定义的颜色字段

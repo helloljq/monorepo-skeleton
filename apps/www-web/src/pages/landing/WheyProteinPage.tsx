@@ -1,29 +1,37 @@
-import { useState } from 'react'
-import { Check, Copy, UserPlus, Mountain, MessageCircle, Gem, Activity, Leaf } from 'lucide-react'
-import FeaturePasture from '../../assets/images/feature-pasture.png'
-import FeaturePurity from '../../assets/images/feature-purity.png'
-import FeatureAbsorption from '../../assets/images/feature-absorption.png'
-import UseCaseBreakfast from '../../assets/images/usecase-breakfast.png'
-import UseCaseGym from '../../assets/images/usecase-gym.png'
-import UseCaseOffice from '../../assets/images/usecase-office.png'
-import { Header } from '../../components/layout/Header'
-import { Footer } from '../../components/layout/Footer'
-import { Modal } from '../../components/Modal'
-
+import { useState } from "react";
+import {
+  Check,
+  Copy,
+  UserPlus,
+  Mountain,
+  MessageCircle,
+  Gem,
+  Activity,
+  Leaf,
+} from "lucide-react";
+import FeatureAbsorption from "@/assets/images/feature-absorption.png";
+import FeaturePasture from "@/assets/images/feature-pasture.png";
+import FeaturePurity from "@/assets/images/feature-purity.png";
+import UseCaseBreakfast from "@/assets/images/usecase-breakfast.png";
+import UseCaseGym from "@/assets/images/usecase-gym.png";
+import UseCaseOffice from "@/assets/images/usecase-office.png";
+import { Modal } from "@/components/Modal";
+import { Footer } from "@/components/layout/Footer";
+import { Header } from "@/components/layout/Header";
 
 export function WheyProteinPage() {
-  const [isModalOpen, setIsModalOpen] = useState(false)
-  const [copySuccess, setCopySuccess] = useState(false)
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [copySuccess, setCopySuccess] = useState(false);
 
   const handleCopy = async (text: string) => {
     try {
-      await navigator.clipboard.writeText(text)
-      setCopySuccess(true)
-      setTimeout(() => setCopySuccess(false), 2000)
+      await navigator.clipboard.writeText(text);
+      setCopySuccess(true);
+      setTimeout(() => setCopySuccess(false), 2000);
     } catch {
-      alert('复制失败，请手动复制: ' + text)
+      alert("复制失败，请手动复制: " + text);
     }
-  }
+  };
 
   return (
     <div className="min-h-screen font-sans text-gray-900 bg-[#FDFCF8] flex flex-col">
@@ -43,25 +51,29 @@ export function WheyProteinPage() {
           </div>
 
           <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col md:flex-row items-center gap-8 md:gap-12">
-
             {/* Left Column: Content */}
             <div className="w-full md:w-1/2 flex flex-col items-center md:items-start text-center md:text-left order-2 md:order-1 relative">
-
               {/* Premium Top Label */}
               <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/60 border border-brand-100/50 backdrop-blur-sm shadow-sm mb-6 animate-fade-in-up">
                 <span className="w-1.5 h-1.5 rounded-full bg-brand-500"></span>
-                <span className="text-[10px] sm:text-xs font-semibold text-brand-800 tracking-widest uppercase">Nature's Purest Source</span>
+                <span className="text-[10px] sm:text-xs font-semibold text-brand-800 tracking-widest uppercase">
+                  Nature's Purest Source
+                </span>
               </div>
 
               {/* Headline */}
               <h1 className="text-4xl sm:text-5xl lg:text-7xl font-bold text-gray-900 tracking-tight leading-[1.1] mb-6 drop-shadow-sm">
                 <span className="block text-brand-800">纯净滋养</span>
-                <span className="block bg-clip-text text-transparent bg-gradient-to-r from-gray-900 via-gray-800 to-gray-600">唤醒身体轻盈力</span>
+                <span className="block bg-clip-text text-transparent bg-gradient-to-r from-gray-900 via-gray-800 to-gray-600">
+                  唤醒身体轻盈力
+                </span>
               </h1>
 
               {/* Subtitle */}
               <p className="text-base sm:text-xl text-gray-600 leading-relaxed mb-8 max-w-lg md:max-w-none mx-auto md:mx-0 font-light">
-                专为女性定制的 <span className="font-medium text-brand-700">92.3% 高纯度</span> 分离乳清蛋白。
+                专为女性定制的{" "}
+                <span className="font-medium text-brand-700">92.3% 高纯度</span>{" "}
+                分离乳清蛋白。
                 <br className="hidden sm:inline" />
                 剔除多余负担，只留纯粹营养，每一口都是对身体的温柔呵护。
               </p>
@@ -71,13 +83,24 @@ export function WheyProteinPage() {
                 {[
                   { label: "新西兰草饲奶源", icon: "Mountain" },
                   { label: "0蔗糖 0腹胀", icon: "Leaf" },
-                  { label: "小分子快吸收", icon: "Activity" }
+                  { label: "小分子快吸收", icon: "Activity" },
                 ].map((badge, i) => (
-                  <div key={i} className="flex items-center gap-2 px-3 py-2 bg-white/80 rounded-xl shadow-sm border border-gray-100/50">
-                    {badge.icon === 'Mountain' && <Mountain className="w-4 h-4 text-brand-500" />}
-                    {badge.icon === 'Leaf' && <Leaf className="w-4 h-4 text-brand-500" />}
-                    {badge.icon === 'Activity' && <Activity className="w-4 h-4 text-brand-500" />}
-                    <span className="text-xs sm:text-sm font-medium text-gray-700">{badge.label}</span>
+                  <div
+                    key={i}
+                    className="flex items-center gap-2 px-3 py-2 bg-white/80 rounded-xl shadow-sm border border-gray-100/50"
+                  >
+                    {badge.icon === "Mountain" && (
+                      <Mountain className="w-4 h-4 text-brand-500" />
+                    )}
+                    {badge.icon === "Leaf" && (
+                      <Leaf className="w-4 h-4 text-brand-500" />
+                    )}
+                    {badge.icon === "Activity" && (
+                      <Activity className="w-4 h-4 text-brand-500" />
+                    )}
+                    <span className="text-xs sm:text-sm font-medium text-gray-700">
+                      {badge.label}
+                    </span>
                   </div>
                 ))}
               </div>
@@ -95,13 +118,21 @@ export function WheyProteinPage() {
 
                 <div className="flex items-center gap-3 opacity-90">
                   <div className="flex -space-x-2">
-                    {[1, 2, 3].map(n => (
-                      <div key={n} className="w-8 h-8 rounded-full border-2 border-white bg-gray-200 overflow-hidden">
-                        <img src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${n + 20}`} alt="user" />
+                    {[1, 2, 3].map((n) => (
+                      <div
+                        key={n}
+                        className="w-8 h-8 rounded-full border-2 border-white bg-gray-200 overflow-hidden"
+                      >
+                        <img
+                          src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${n + 20}`}
+                          alt="user"
+                        />
                       </div>
                     ))}
                   </div>
-                  <span className="text-xs text-gray-500 font-medium">1000+ 姐妹已加入</span>
+                  <span className="text-xs text-gray-500 font-medium">
+                    1000+ 姐妹已加入
+                  </span>
                 </div>
               </div>
             </div>
@@ -123,19 +154,22 @@ export function WheyProteinPage() {
                   <Gem className="w-5 h-5" />
                 </div>
                 <div>
-                  <p className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">Purity</p>
+                  <p className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">
+                    Purity
+                  </p>
                   <p className="text-sm font-bold text-gray-800">92.3% 纯度</p>
                 </div>
               </div>
             </div>
-
           </div>
         </section>
 
         {/* The 4-Zero Commitment (Typographic Clean List) */}
         <section className="py-24 bg-[#F5F5F0]">
           <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-            <h2 className="text-sm font-bold tracking-[0.3em] text-gray-400 uppercase mb-4">The Clean List</h2>
+            <h2 className="text-sm font-bold tracking-[0.3em] text-gray-400 uppercase mb-4">
+              The Clean List
+            </h2>
             <h3 className="text-3xl sm:text-5xl font-serif font-medium text-gray-900 mb-16">
               坚持“四零”承诺
               <span className="block text-lg sm:text-xl text-gray-500 font-sans font-light mt-4">
@@ -148,13 +182,24 @@ export function WheyProteinPage() {
                 { label: "Sugars", cn: "蔗糖", desc: "0g Added" },
                 { label: "Fillers", cn: "添加剂", desc: "None" },
                 { label: "Artificial", cn: "人工香精", desc: "0%" },
-                { label: "Soy", cn: "大豆蛋白", desc: "Free" }
+                { label: "Soy", cn: "大豆蛋白", desc: "Free" },
               ].map((item, idx) => (
-                <div key={idx} className="bg-[#F5F5F0] p-8 md:p-12 hover:bg-white transition-colors duration-500 group">
-                  <div className="text-6xl font-serif text-gray-200 group-hover:text-brand-200 transition-colors mb-4">0</div>
-                  <div className="text-xs font-bold tracking-widest uppercase text-gray-400 mb-1">{item.label}</div>
-                  <div className="text-xl font-bold text-gray-900 mb-2">{item.cn}</div>
-                  <div className="text-sm text-brand-600 font-medium">{item.desc}</div>
+                <div
+                  key={idx}
+                  className="bg-[#F5F5F0] p-8 md:p-12 hover:bg-white transition-colors duration-500 group"
+                >
+                  <div className="text-6xl font-serif text-gray-200 group-hover:text-brand-200 transition-colors mb-4">
+                    0
+                  </div>
+                  <div className="text-xs font-bold tracking-widest uppercase text-gray-400 mb-1">
+                    {item.label}
+                  </div>
+                  <div className="text-xl font-bold text-gray-900 mb-2">
+                    {item.cn}
+                  </div>
+                  <div className="text-sm text-brand-600 font-medium">
+                    {item.desc}
+                  </div>
                 </div>
               ))}
             </div>
@@ -178,25 +223,37 @@ export function WheyProteinPage() {
             <div className="bg-white/90 backdrop-blur-md p-8 md:p-12 rounded-[2rem] max-w-lg shadow-2xl border border-white/40 animate-fade-in-up">
               <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-brand-50 border border-brand-100 mb-6">
                 <Mountain className="w-4 h-4 text-brand-600" />
-                <span className="text-xs font-bold text-brand-700 tracking-wider">NEW ZEALAND</span>
+                <span className="text-xs font-bold text-brand-700 tracking-wider">
+                  NEW ZEALAND
+                </span>
               </div>
               <h3 className="text-3xl sm:text-4xl font-bold text-gray-900 mb-6 leading-tight">
-                纯净奶源的<br />
+                纯净奶源的
+                <br />
                 <span className="text-brand-600">自然馈赠</span>
               </h3>
               <p className="text-lg text-gray-600 leading-relaxed mb-8">
                 甄选新西兰黄金奶源带，这里空气纯净、水源清澈。
-                每一只奶牛都享受着全年 2000 小时以上的阳光浴，天然草饲，自然生长。
+                每一只奶牛都享受着全年 2000
+                小时以上的阳光浴，天然草饲，自然生长。
               </p>
 
               <div className="grid grid-cols-2 gap-6 pt-6 border-t border-gray-100">
                 <div>
-                  <span className="block text-2xl font-bold text-gray-900 text-brand-700">100%</span>
-                  <span className="text-xs text-gray-500 font-medium">Grass Fed</span>
+                  <span className="block text-2xl font-bold text-gray-900 text-brand-700">
+                    100%
+                  </span>
+                  <span className="text-xs text-gray-500 font-medium">
+                    Grass Fed
+                  </span>
                 </div>
                 <div>
-                  <span className="block text-2xl font-bold text-gray-900 text-brand-700">0</span>
-                  <span className="text-xs text-gray-500 font-medium">Hormones</span>
+                  <span className="block text-2xl font-bold text-gray-900 text-brand-700">
+                    0
+                  </span>
+                  <span className="text-xs text-gray-500 font-medium">
+                    Hormones
+                  </span>
                 </div>
               </div>
             </div>
@@ -214,10 +271,15 @@ export function WheyProteinPage() {
             <div className="w-full md:w-1/2">
               <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-purple-100 border border-purple-200 mb-6">
                 <Gem className="w-4 h-4 text-purple-600" />
-                <span className="text-xs font-bold text-purple-700 tracking-wider">PURITY</span>
+                <span className="text-xs font-bold text-purple-700 tracking-wider">
+                  PURITY
+                </span>
               </div>
               <h3 className="text-4xl sm:text-5xl font-bold text-gray-900 mb-8 leading-tight tracking-tight">
-                <span className="text-transparent bg-clip-text bg-gradient-to-r from-gray-900 to-gray-600">92.3%</span><br />
+                <span className="text-transparent bg-clip-text bg-gradient-to-r from-gray-900 to-gray-600">
+                  92.3%
+                </span>
+                <br />
                 高纯蛋白
               </h3>
               <p className="text-xl text-gray-600 leading-relaxed mb-10 font-light">
@@ -228,9 +290,12 @@ export function WheyProteinPage() {
                 {[
                   "高纯度 0 脂肪，保持身材无负担",
                   "去除 99% 乳糖，乳糖不耐受友好",
-                  "富含支链氨基酸，唤醒身体代谢力"
+                  "富含支链氨基酸，唤醒身体代谢力",
                 ].map((item, i) => (
-                  <li key={i} className="flex items-center gap-4 text-gray-700 text-lg">
+                  <li
+                    key={i}
+                    className="flex items-center gap-4 text-gray-700 text-lg"
+                  >
                     <div className="w-6 h-6 rounded-full bg-brand-100 flex items-center justify-center shadow-sm">
                       <Check className="w-3.5 h-3.5 text-brand-600" />
                     </div>
@@ -256,15 +321,18 @@ export function WheyProteinPage() {
             <div className="max-w-lg">
               <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-amber-100 border border-amber-200/50 backdrop-blur shadow-sm mb-6">
                 <Activity className="w-4 h-4 text-amber-700" />
-                <span className="text-xs font-bold text-amber-800 tracking-wider">FAST ABSORPTION</span>
+                <span className="text-xs font-bold text-amber-800 tracking-wider">
+                  FAST ABSORPTION
+                </span>
               </div>
               <h3 className="text-4xl sm:text-5xl font-bold text-gray-900 mb-8 leading-tight">
-                快速充能<br />
+                快速充能
+                <br />
                 <span className="text-amber-600">深层滋养</span>
               </h3>
               <p className="text-lg text-gray-700 leading-relaxed mb-8">
-                得益于 <strong>离子交换</strong> 技术的高纯度特性，
-                富含 <strong>亮氨酸 (Leucine)</strong> 与支链氨基酸，
+                得益于 <strong>离子交换</strong> 技术的高纯度特性， 富含{" "}
+                <strong>亮氨酸 (Leucine)</strong> 与支链氨基酸，
                 无需复杂消化，迅速唤醒身体能量。
               </p>
 
@@ -274,12 +342,17 @@ export function WheyProteinPage() {
                     ⚡
                   </div>
                   <div>
-                    <div className="text-sm text-gray-500 font-medium">运动后修复黄金窗</div>
-                    <div className="text-xl font-bold text-gray-900">30分钟快速吸收</div>
+                    <div className="text-sm text-gray-500 font-medium">
+                      运动后修复黄金窗
+                    </div>
+                    <div className="text-xl font-bold text-gray-900">
+                      30分钟快速吸收
+                    </div>
                   </div>
                 </div>
                 <p className="text-sm text-gray-600 border-t border-amber-100/50 pt-4">
-                  *这是肌肉合成与恢复的关键时机，高纯度 WPI 提供即时营养支持，拒绝身体异化分解。
+                  *这是肌肉合成与恢复的关键时机，高纯度 WPI
+                  提供即时营养支持，拒绝身体异化分解。
                 </p>
               </div>
             </div>
@@ -289,28 +362,33 @@ export function WheyProteinPage() {
         {/* Use Cases (Lifestyle Gallery) */}
         <section className="py-24 bg-white">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mb-12 text-center">
-            <h2 className="text-3xl font-bold text-gray-900">随时随地，补充能量</h2>
+            <h2 className="text-3xl font-bold text-gray-900">
+              随时随地，补充能量
+            </h2>
           </div>
 
           <div className="flex flex-col md:flex-row h-auto md:h-[600px] w-full">
             {[
               {
-                title: '活力早餐',
-                desc: '搭配牛奶或燕麦，开启元气满满的一天',
+                title: "活力早餐",
+                desc: "搭配牛奶或燕麦，开启元气满满的一天",
                 image: UseCaseBreakfast,
               },
               {
-                title: '运动修复',
-                desc: '运动后 30 分钟，快速为肌肉补充营养',
+                title: "运动修复",
+                desc: "运动后 30 分钟，快速为肌肉补充营养",
                 image: UseCaseGym,
               },
               {
-                title: '日常加餐',
-                desc: '办公间隙，随时补充，健康无负担',
+                title: "日常加餐",
+                desc: "办公间隙，随时补充，健康无负担",
                 image: UseCaseOffice,
-              }
+              },
             ].map((item, idx) => (
-              <div key={idx} className="relative flex-1 group overflow-hidden min-h-[300px] md:min-h-0">
+              <div
+                key={idx}
+                className="relative flex-1 group overflow-hidden min-h-[300px] md:min-h-0"
+              >
                 <div
                   className="absolute inset-0 bg-cover bg-center transition-transform duration-700 group-hover:scale-110"
                   style={{ backgroundImage: `url(${item.image})` }}
@@ -318,7 +396,9 @@ export function WheyProteinPage() {
                 <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent opacity-80 group-hover:opacity-90 transition-opacity"></div>
 
                 <div className="absolute bottom-0 left-0 p-8 md:p-10 transform transition-transform duration-500 md:translate-y-4 group-hover:translate-y-0 text-left">
-                  <h3 className="text-2xl font-bold text-white mb-2">{item.title}</h3>
+                  <h3 className="text-2xl font-bold text-white mb-2">
+                    {item.title}
+                  </h3>
                   <p className="text-white/80 text-sm md:text-base leading-relaxed opacity-100 md:opacity-0 group-hover:opacity-100 transition-opacity duration-500 delay-100">
                     {item.desc}
                   </p>
@@ -335,7 +415,9 @@ export function WheyProteinPage() {
           <div className="absolute bottom-0 right-0 w-64 h-64 bg-brand-400/20 rounded-full blur-3xl translate-x-1/2 translate-y-1/2"></div>
 
           <div className="max-w-4xl mx-auto px-4 relative z-10">
-            <h2 className="text-3xl md:text-4xl font-bold text-white mb-6 tracking-tight">准备好开启健康生活了吗？</h2>
+            <h2 className="text-3xl md:text-4xl font-bold text-white mb-6 tracking-tight">
+              准备好开启健康生活了吗？
+            </h2>
             <p className="text-brand-50 text-lg mb-10 max-w-2xl mx-auto">
               加入我们的社群，与 1000+ 姐妹一起变美变瘦。
               <br className="hidden sm:inline" />
@@ -350,13 +432,14 @@ export function WheyProteinPage() {
             </button>
           </div>
         </section>
-
       </main>
 
       {/* Sticky Bottom Bar (Mobile Only) */}
       <div className="fixed bottom-0 left-0 right-0 p-4 bg-white/90 backdrop-blur-lg border-t border-gray-200 z-50 sm:hidden flex items-center justify-between gap-4 shadow-[0_-4px_20px_rgba(0,0,0,0.05)]">
         <div className="flex flex-col">
-          <span className="text-xs text-gray-400 font-medium uppercase tracking-wider">Join Now</span>
+          <span className="text-xs text-gray-400 font-medium uppercase tracking-wider">
+            Join Now
+          </span>
           <span className="text-brand-700 font-bold text-lg">跟笑姐打卡</span>
         </div>
         <button
@@ -370,12 +453,16 @@ export function WheyProteinPage() {
       <Footer />
 
       {/* WeChat Modal - Preserving Logic */}
-      <Modal open={isModalOpen} onClose={() => setIsModalOpen(false)} title="跟笑姐一起打卡">
+      <Modal
+        open={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        title="跟笑姐一起打卡"
+      >
         <div className="space-y-6">
           <div className="bg-gray-50 p-4 rounded-xl text-center">
             <p className="text-gray-600 mb-3 text-sm">点击下方按钮复制微信号</p>
             <button
-              onClick={() => handleCopy('xiaojiexzl')}
+              onClick={() => handleCopy("xiaojiexzl")}
               className="inline-flex items-center justify-center px-4 py-2 bg-brand-100 text-brand-700 rounded-lg font-mono font-bold text-lg hover:bg-brand-200 transition-colors w-full border border-brand-200"
             >
               xiaojiexzl
@@ -394,7 +481,9 @@ export function WheyProteinPage() {
                 1
               </div>
               <div className="ml-3">
-                <p className="text-sm font-medium text-gray-900">点击上方按钮复制微信号</p>
+                <p className="text-sm font-medium text-gray-900">
+                  点击上方按钮复制微信号
+                </p>
                 <p className="text-xs text-gray-500 mt-0.5">一定要先复制哦</p>
               </div>
             </div>
@@ -404,8 +493,12 @@ export function WheyProteinPage() {
                 2
               </div>
               <div className="ml-3">
-                <p className="text-sm font-medium text-gray-900">打开微信 "添加朋友"</p>
-                <p className="text-xs text-gray-500 mt-0.5">点击微信首页右上角 ⊕ ➝ 选择 "添加朋友"</p>
+                <p className="text-sm font-medium text-gray-900">
+                  打开微信 "添加朋友"
+                </p>
+                <p className="text-xs text-gray-500 mt-0.5">
+                  点击微信首页右上角 ⊕ ➝ 选择 "添加朋友"
+                </p>
               </div>
             </div>
 
@@ -415,7 +508,9 @@ export function WheyProteinPage() {
               </div>
               <div className="ml-3">
                 <p className="text-sm font-medium text-gray-900">粘贴并搜索</p>
-                <p className="text-xs text-gray-500 mt-0.5">在搜索框粘贴微信号，点击搜索即可</p>
+                <p className="text-xs text-gray-500 mt-0.5">
+                  在搜索框粘贴微信号，点击搜索即可
+                </p>
               </div>
             </div>
           </div>
@@ -428,5 +523,5 @@ export function WheyProteinPage() {
         </div>
       </Modal>
     </div>
-  )
+  );
 }

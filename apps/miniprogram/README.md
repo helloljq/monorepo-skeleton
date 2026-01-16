@@ -4,6 +4,8 @@
 
 ## 开发
 
+> 注意：Taro 工具链对 Node 版本较敏感；开发小程序请使用 Node.js >= 20（如遇 Node.js 22 兼容问题，建议切换到 Node.js 20）。
+
 ```bash
 # 安装依赖
 pnpm install

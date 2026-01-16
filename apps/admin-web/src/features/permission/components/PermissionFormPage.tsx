@@ -37,7 +37,7 @@ import {
   permissionFormSchema,
   type PermissionFormData,
   type Permission,
-} from "../types";
+} from "@/features/permission/types";
 import { isApiError } from "@/lib/api-error";
 
 export function PermissionFormPage() {
@@ -47,7 +47,7 @@ export function PermissionFormPage() {
   const isEditing = !!id;
 
   const { data: editingItem, isLoading: isLoadingDetail } =
-    usePermissionControllerFindOne<Permission>(Number(id), {
+    usePermissionControllerFindOne<Permission>(id ?? "", {
       query: { enabled: isEditing },
     });
 
@@ -85,7 +85,7 @@ export function PermissionFormPage() {
     try {
       if (isEditing && id) {
         await updateMutation.mutateAsync({
-          id: Number(id),
+          id,
           data: {
             name: data.name,
             description: data.description || undefined,
@@ -114,7 +114,7 @@ export function PermissionFormPage() {
         }),
         isEditing &&
           queryClient.invalidateQueries({
-            queryKey: getPermissionControllerFindOneQueryKey(Number(id)),
+            queryKey: getPermissionControllerFindOneQueryKey(id),
           }),
       ]);
       navigate("/system/permissions");

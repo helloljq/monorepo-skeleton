@@ -17,7 +17,10 @@ import {
   useDictionaryControllerFindAll,
   getDictionaryControllerFindAllQueryKey,
 } from "@/api/generated/dictionary/dictionary";
-import type { Dictionary, DictionaryListResponse } from "../types";
+import type {
+  Dictionary,
+  DictionaryListResponse,
+} from "@/features/dictionary/types";
 import { DictionaryTable } from "./DictionaryTable";
 import { DeleteConfirmDialog } from "./DeleteConfirmDialog";
 
@@ -27,7 +30,8 @@ export function DictionaryListPage() {
   const [searchParams, setSearchParams] = useSearchParams();
 
   const page = Number(searchParams.get("page")) || 1;
-  const limit = Number(searchParams.get("limit")) || 10;
+  const pageSize =
+    Number(searchParams.get("pageSize") ?? searchParams.get("limit")) || 10;
   const type = searchParams.get("type") || "";
   const isEnabled = searchParams.get("isEnabled");
 
@@ -37,9 +41,14 @@ export function DictionaryListPage() {
   const { data, isLoading } =
     useDictionaryControllerFindAll<DictionaryListResponse>({
       page,
-      limit,
+      pageSize,
       type: type || undefined,
-      isEnabled: isEnabled || undefined,
+      isEnabled:
+        isEnabled === "true"
+          ? "true"
+          : isEnabled === "false"
+            ? "false"
+            : undefined,
     });
 
   const handleSearch = () => {
@@ -55,7 +64,7 @@ export function DictionaryListPage() {
 
   const handleReset = () => {
     setTypeFilter("");
-    setSearchParams({ page: "1", limit: String(limit) });
+    setSearchParams({ page: "1", pageSize: String(pageSize) });
   };
 
   const handlePageChange = (newPage: number) => {
@@ -157,13 +166,19 @@ export function DictionaryListPage() {
       <Card>
         <CardContent className="p-0">
           <DictionaryTable
-            data={Array.isArray(data?.data) ? data.data : []}
+            data={Array.isArray(data?.items) ? data.items : []}
             isLoading={isLoading}
             pagination={{
               page,
-              limit,
-              total: data?.meta?.total || 0,
-              totalPages: data?.meta?.totalPages || 0,
+              pageSize: data?.pagination?.pageSize ?? pageSize,
+              total: data?.pagination?.total || 0,
+              totalPages:
+                (data?.pagination?.pageSize ?? pageSize) > 0
+                  ? Math.ceil(
+                      (data?.pagination?.total || 0) /
+                        (data?.pagination?.pageSize ?? pageSize),
+                    )
+                  : 0,
             }}
             onPageChange={handlePageChange}
             onEdit={handleEdit}

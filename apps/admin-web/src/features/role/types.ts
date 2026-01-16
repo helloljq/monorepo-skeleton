@@ -1,22 +1,24 @@
 import { z } from "zod";
 
 export interface Role {
-  id: number;
+  /** Public ID (UUID) */
+  id: string;
   code: string;
   name: string;
   description?: string | null;
   isEnabled: boolean;
   createdAt: string;
   updatedAt: string;
+  userCount?: number;
+  permissionCount?: number;
 }
 
 export interface RoleListResponse {
-  data: Role[];
-  meta: {
+  items: Role[];
+  pagination: {
     total: number;
     page: number;
-    limit: number;
-    totalPages: number;
+    pageSize: number;
   };
 }
 

@@ -5,7 +5,10 @@ import { ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useConfigItemControllerGetHistory } from "@/api/generated/config-center-config-items/config-center-config-items";
-import type { ConfigItemHistory, ConfigItemHistoryResponse } from "../types";
+import type {
+  ConfigItemHistory,
+  ConfigItemHistoryResponse,
+} from "@/features/config-item/types";
 import { ConfigItemHistoryTable } from "./ConfigItemHistoryTable";
 import { RollbackConfirmDialog } from "./RollbackConfirmDialog";
 import { ValueViewDialog } from "./ValueViewDialog";
@@ -89,7 +92,7 @@ export function ConfigItemHistoryPage() {
         </CardHeader>
         <CardContent>
           <ConfigItemHistoryTable
-            data={data?.data}
+            data={data?.items}
             isLoading={isLoading}
             onRollback={handleRollback}
             onViewValue={handleViewValue}
@@ -118,11 +121,11 @@ export function ConfigItemHistoryPage() {
         />
       )}
 
-      {showDiff && data?.data && (
+      {showDiff && data?.items && (
         <HistoryDiffDialog
           open={showDiff}
           onOpenChange={setShowDiff}
-          historyItems={data.data}
+          historyItems={data.items}
         />
       )}
     </div>

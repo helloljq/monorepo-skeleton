@@ -18,8 +18,8 @@ import {
 } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
-import { useUIStore } from "@/stores/uiStore";
-import { useSettingsStore } from "@/stores/settingsStore";
+import { useUIStore } from "@/stores/ui-store";
+import { useSettingsStore } from "@/stores/settings-store";
 import { ColorCustomizer } from "./ColorCustomizer";
 import { ThemeEditor } from "./ThemeEditor";
 import { ThemePresetPicker } from "./ThemePresetPicker";

@@ -1,7 +1,7 @@
 import { Outlet } from "react-router-dom";
 
 import { cn } from "@/lib/utils";
-import { useUIStore } from "@/stores/uiStore";
+import { useUIStore } from "@/stores/ui-store";
 import { Sidebar } from "./Sidebar";
 import { Header } from "./Header";
 

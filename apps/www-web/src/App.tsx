@@ -1,7 +1,7 @@
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
-import { HomePage } from './pages/HomePage'
-import { WheyProteinPage } from './pages/landing/WheyProteinPage'
-import { AboutPage } from './pages/AboutPage'
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { HomePage } from "./pages/HomePage";
+import { WheyProteinPage } from "./pages/landing/WheyProteinPage";
+import { AboutPage } from "./pages/AboutPage";
 
 function App() {
   return (
@@ -24,7 +24,7 @@ function App() {
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </BrowserRouter>
-  )
+  );
 }
 
-export default App
+export default App;

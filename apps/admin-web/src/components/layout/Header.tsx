@@ -8,7 +8,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { UserNav } from "./UserNav";
 import { SidebarNav } from "./SidebarNav";
 import { menuConfig } from "@/config/menu";
-import { useUIStore } from "@/stores/uiStore";
+import { useUIStore } from "@/stores/ui-store";
 
 export function Header() {
   const { sidebarCollapsed, sidebarMobileOpen, setSidebarMobileOpen } =

@@ -375,7 +375,7 @@ export const useIdentityControllerBindPhone = <
  * @summary 解绑身份
  */
 export const identityControllerUnbindIdentity = (
-  id: number,
+  id: string,
   options?: SecondParameter<typeof customFetch>,
 ) => {
   return customFetch<UnbindResponseDto>(
@@ -391,14 +391,14 @@ export const getIdentityControllerUnbindIdentityMutationOptions = <
   mutation?: UseMutationOptions<
     Awaited<ReturnType<typeof identityControllerUnbindIdentity>>,
     TError,
-    { id: number },
+    { id: string },
     TContext
   >;
   request?: SecondParameter<typeof customFetch>;
 }): UseMutationOptions<
   Awaited<ReturnType<typeof identityControllerUnbindIdentity>>,
   TError,
-  { id: number },
+  { id: string },
   TContext
 > => {
   const mutationKey = ["identityControllerUnbindIdentity"];
@@ -412,7 +412,7 @@ export const getIdentityControllerUnbindIdentityMutationOptions = <
 
   const mutationFn: MutationFunction<
     Awaited<ReturnType<typeof identityControllerUnbindIdentity>>,
-    { id: number }
+    { id: string }
   > = (props) => {
     const { id } = props ?? {};
 
@@ -439,7 +439,7 @@ export const useIdentityControllerUnbindIdentity = <
     mutation?: UseMutationOptions<
       Awaited<ReturnType<typeof identityControllerUnbindIdentity>>,
       TError,
-      { id: number },
+      { id: string },
       TContext
     >;
     request?: SecondParameter<typeof customFetch>;
@@ -448,7 +448,7 @@ export const useIdentityControllerUnbindIdentity = <
 ): UseMutationResult<
   Awaited<ReturnType<typeof identityControllerUnbindIdentity>>,
   TError,
-  { id: number },
+  { id: string },
   TContext
 > => {
   const mutationOptions =

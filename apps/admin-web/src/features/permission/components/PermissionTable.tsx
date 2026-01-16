@@ -10,14 +10,14 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import type { Permission } from "../types";
+import type { Permission } from "@/features/permission/types";
 
 interface PermissionTableProps {
   data: Permission[];
   isLoading: boolean;
   pagination: {
     page: number;
-    limit: number;
+    pageSize: number;
     total: number;
     totalPages: number;
   };

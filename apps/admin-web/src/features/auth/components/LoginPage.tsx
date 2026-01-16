@@ -25,8 +25,8 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 
-import { useAuthControllerLogin } from "@/api/generated/auth/auth";
-import { useAuthStore } from "@/stores/authStore";
+import { customFetch } from "@/api/custom-fetch";
+import { useAuthStore } from "@/stores/auth-store";
 import { isApiError } from "@/lib/api-error";
 
 const loginSchema = z.object({
@@ -39,7 +39,8 @@ type LoginFormData = z.infer<typeof loginSchema>;
 export function LoginPage() {
   const navigate = useNavigate();
   const [showPassword, setShowPassword] = useState(false);
-  const { deviceId, setTokens, setUser, isAuthenticated } = useAuthStore();
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const { deviceId, login, isAuthenticated } = useAuthStore();
 
   // 如果已登录，跳转到主页
   useEffect(() => {
@@ -56,11 +57,16 @@ export function LoginPage() {
     },
   });
 
-  const loginMutation = useAuthControllerLogin();
-
   const onSubmit = async (data: LoginFormData) => {
     try {
-      const response = await loginMutation.mutateAsync({
+      setIsSubmitting(true);
+      const user = await customFetch<{
+        id: string;
+        email: string | null;
+        name?: string | null;
+      }>({
+        url: "/v1/auth/web/login",
+        method: "POST",
         data: {
           email: data.email,
           password: data.password,
@@ -68,18 +74,7 @@ export function LoginPage() {
         },
       });
 
-      setTokens({
-        accessToken: response.accessToken,
-        refreshToken: response.refreshToken,
-        accessExpiresInSeconds: response.accessExpiresInSeconds,
-      });
-
-      // TODO: 获取用户信息 API 后再设置 user
-      setUser({
-        id: 0,
-        email: data.email,
-        name: null,
-      });
+      login(user);
 
       toast.success("登录成功");
       navigate("/");
@@ -100,6 +95,8 @@ export function LoginPage() {
       } else {
         toast.error("登录失败，请检查邮箱和密码");
       }
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -166,12 +163,8 @@ export function LoginPage() {
               />
             </CardContent>
             <CardFooter className="flex flex-col space-y-4">
-              <Button
-                type="submit"
-                className="w-full"
-                disabled={loginMutation.isPending}
-              >
-                {loginMutation.isPending && (
+              <Button type="submit" className="w-full" disabled={isSubmitting}>
+                {isSubmitting && (
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                 )}
                 登录

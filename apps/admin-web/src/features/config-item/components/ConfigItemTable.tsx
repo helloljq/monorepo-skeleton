@@ -1,7 +1,7 @@
 import { Pencil, Trash2, History } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import type { ConfigItem } from "../types";
+import type { ConfigItem } from "@/features/config-item/types";
 import { formatDateTime } from "@/lib/utils";
 import { TableLoading, TableEmpty } from "@/components/common/TableStates";
 import { Pagination } from "@/components/common/Pagination";

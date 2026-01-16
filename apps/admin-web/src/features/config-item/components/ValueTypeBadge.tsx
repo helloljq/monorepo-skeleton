@@ -1,5 +1,5 @@
 import { Badge } from "@/components/ui/badge";
-import type { ValueType } from "../types";
+import type { ValueType } from "@/features/config-item/types";
 
 interface ValueTypeBadgeProps {
   type: ValueType;

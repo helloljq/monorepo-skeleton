@@ -18,8 +18,11 @@ import {
   getConfigItemControllerFindAllQueryKey,
 } from "@/api/generated/config-center-config-items/config-center-config-items";
 import { useNamespaceControllerFindOne } from "@/api/generated/config-center-namespaces/config-center-namespaces";
-import type { Namespace } from "@/features/namespace/types";
-import type { ConfigItem, ConfigItemListResponse } from "../types";
+import type { Namespace } from "@/features/namespace";
+import type {
+  ConfigItem,
+  ConfigItemListResponse,
+} from "@/features/config-item/types";
 import { ConfigItemTable } from "./ConfigItemTable";
 import { DeleteConfirmDialog } from "./DeleteConfirmDialog";
 
@@ -30,7 +33,8 @@ export function ConfigItemListPage() {
   const [searchParams, setSearchParams] = useSearchParams();
 
   const page = Number(searchParams.get("page")) || 1;
-  const limit = Number(searchParams.get("limit")) || 10;
+  const pageSize =
+    Number(searchParams.get("pageSize") ?? searchParams.get("limit")) || 10;
   const isEnabled = searchParams.get("isEnabled") || "all";
   const keyFilter = searchParams.get("key") || "";
   const [deleteItem, setDeleteItem] = useState<ConfigItem | null>(null);
@@ -51,7 +55,7 @@ export function ConfigItemListPage() {
     namespace || "",
     {
       page,
-      limit,
+      pageSize,
       isEnabled:
         isEnabled === "true"
           ? "true"
@@ -84,7 +88,7 @@ export function ConfigItemListPage() {
 
   const handleReset = () => {
     setKeyInput("");
-    setSearchParams({ page: "1", limit: String(limit) });
+    setSearchParams({ page: "1", pageSize: String(pageSize) });
   };
 
   const handlePageChange = (newPage: number) => {
@@ -225,10 +229,17 @@ export function ConfigItemListPage() {
         </CardHeader>
         <CardContent>
           <ConfigItemTable
-            data={data?.data}
+            data={data?.items}
             isLoading={isLoading}
             currentPage={page}
-            totalPages={data?.meta?.totalPages || 0}
+            totalPages={
+              (data?.pagination?.pageSize ?? pageSize) > 0
+                ? Math.ceil(
+                    (data?.pagination?.total || 0) /
+                      (data?.pagination?.pageSize ?? pageSize),
+                  )
+                : 0
+            }
             onPageChange={handlePageChange}
             onEdit={handleEdit}
             onDelete={handleDelete}

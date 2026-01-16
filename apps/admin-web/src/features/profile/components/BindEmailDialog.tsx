@@ -25,7 +25,10 @@ import {
   useIdentityControllerBindEmail,
   getIdentityControllerListIdentitiesQueryKey,
 } from "@/api/generated/identity/identity";
-import { bindEmailSchema, type BindEmailFormData } from "../types";
+import {
+  bindEmailSchema,
+  type BindEmailFormData,
+} from "@/features/profile/types";
 
 interface BindEmailDialogProps {
   open: boolean;

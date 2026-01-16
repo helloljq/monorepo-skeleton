@@ -25,7 +25,10 @@ import {
   useIdentityControllerBindPhone,
   getIdentityControllerListIdentitiesQueryKey,
 } from "@/api/generated/identity/identity";
-import { bindPhoneSchema, type BindPhoneFormData } from "../types";
+import {
+  bindPhoneSchema,
+  type BindPhoneFormData,
+} from "@/features/profile/types";
 
 interface BindPhoneDialogProps {
   open: boolean;

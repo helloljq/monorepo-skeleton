@@ -26,5 +26,10 @@ export type DictionaryControllerFindAllParams = {
    * @minimum 1
    * @maximum 100
    */
+  pageSize?: number;
+  /**
+   * 兼容参数：limit（迁移期保留；请使用 pageSize）
+   * @deprecated
+   */
   limit?: number;
 };

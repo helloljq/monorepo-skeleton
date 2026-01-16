@@ -28,9 +28,9 @@ import {
   useIdentityControllerUnbindIdentity,
   getIdentityControllerListIdentitiesQueryKey,
 } from "@/api/generated/identity/identity";
-import { useAuthStore } from "@/stores/authStore";
+import { useAuthStore } from "@/stores/auth-store";
 import { useQueryClient } from "@tanstack/react-query";
-import { getProviderDisplayName } from "../types";
+import { getProviderDisplayName } from "@/features/profile/types";
 import { BindEmailDialog } from "./BindEmailDialog";
 import { BindPhoneDialog } from "./BindPhoneDialog";
 
@@ -39,7 +39,7 @@ export function ProfilePage() {
   const queryClient = useQueryClient();
   const { user } = useAuthStore();
 
-  const [unbindId, setUnbindId] = useState<number | null>(null);
+  const [unbindId, setUnbindId] = useState<string | null>(null);
   const [bindEmailOpen, setBindEmailOpen] = useState(false);
   const [bindPhoneOpen, setBindPhoneOpen] = useState(false);
 

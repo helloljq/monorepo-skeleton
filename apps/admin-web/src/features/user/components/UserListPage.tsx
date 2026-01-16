@@ -22,8 +22,8 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useUserControllerFindAll } from "@/api/generated/user/user";
 import { useRoleControllerFindAll } from "@/api/generated/role/role";
-import type { UserListResponse, User } from "../types";
-import type { RoleListResponse } from "@/features/role/types";
+import type { RoleListResponse } from "@/features/role";
+import type { User, UserListResponse } from "@/features/user/types";
 import { UserTable } from "./UserTable";
 
 export function UserListPage() {
@@ -31,7 +31,8 @@ export function UserListPage() {
   const [searchParams, setSearchParams] = useSearchParams();
 
   const page = Number(searchParams.get("page")) || 1;
-  const limit = Number(searchParams.get("limit")) || 10;
+  const pageSize =
+    Number(searchParams.get("pageSize") ?? searchParams.get("limit")) || 10;
   const status = searchParams.get("status");
 
   // 从 URL 读取筛选参数
@@ -46,7 +47,7 @@ export function UserListPage() {
   const [nameFilter, setNameFilter] = useState(name || "");
 
   // 批量选择状态
-  const [selectedIds, setSelectedIds] = useState<number[]>([]);
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
 
   // 当 URL 参数变化时同步本地状态
   useEffect(() => {
@@ -61,18 +62,18 @@ export function UserListPage() {
   // 获取角色列表
   const { data: rolesData } = useRoleControllerFindAll<RoleListResponse>({
     page: 1,
-    limit: 100,
+    pageSize: 100,
     isEnabled: "true",
   });
-  const roles = rolesData?.data || [];
+  const roles = rolesData?.items || [];
 
   const { data, isLoading } = useUserControllerFindAll<UserListResponse>({
     page,
-    limit,
-    id: id ? Number(id) : undefined,
+    pageSize,
+    id: id || undefined,
     email: email || undefined,
     name: name || undefined,
-    roleId: roleId ? Number(roleId) : undefined,
+    roleId: roleId || undefined,
     status: status as "ACTIVE" | "DISABLED" | "PENDING" | undefined,
   });
 
@@ -96,7 +97,7 @@ export function UserListPage() {
     setIdFilter("");
     setEmailFilter("");
     setNameFilter("");
-    setSearchParams({ page: "1", limit: String(limit) });
+    setSearchParams({ page: "1", pageSize: String(pageSize) });
   };
 
   const handleRoleFilterChange = (value: string) => {
@@ -170,8 +171,7 @@ export function UserListPage() {
             <div className="w-[150px]">
               <label className="mb-2 block text-sm font-medium">用户 ID</label>
               <Input
-                type="number"
-                placeholder="输入用户ID"
+                placeholder="输入用户ID（UUID）"
                 value={idFilter}
                 onChange={(e) => setIdFilter(e.target.value)}
                 onKeyDown={(e) => e.key === "Enter" && handleSearch()}
@@ -284,13 +284,19 @@ export function UserListPage() {
         )}
         <CardContent className="p-0">
           <UserTable
-            data={Array.isArray(data?.data) ? data.data : []}
+            data={Array.isArray(data?.items) ? data.items : []}
             isLoading={isLoading}
             pagination={{
               page,
-              limit,
-              total: data?.meta?.total || 0,
-              totalPages: data?.meta?.totalPages || 0,
+              pageSize: data?.pagination?.pageSize ?? pageSize,
+              total: data?.pagination?.total || 0,
+              totalPages:
+                (data?.pagination?.pageSize ?? pageSize) > 0
+                  ? Math.ceil(
+                      (data?.pagination?.total || 0) /
+                        (data?.pagination?.pageSize ?? pageSize),
+                    )
+                  : 0,
             }}
             onPageChange={handlePageChange}
             onAssignRoles={handleAssignRoles}

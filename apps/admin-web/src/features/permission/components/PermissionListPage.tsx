@@ -17,7 +17,10 @@ import {
   usePermissionControllerFindAll,
   getPermissionControllerFindAllQueryKey,
 } from "@/api/generated/permission/permission";
-import type { Permission, PermissionListResponse } from "../types";
+import type {
+  Permission,
+  PermissionListResponse,
+} from "@/features/permission/types";
 import { PermissionTable } from "./PermissionTable";
 import { DeleteConfirmDialog } from "./DeleteConfirmDialog";
 
@@ -27,7 +30,8 @@ export function PermissionListPage() {
   const [searchParams, setSearchParams] = useSearchParams();
 
   const page = Number(searchParams.get("page")) || 1;
-  const limit = Number(searchParams.get("limit")) || 10;
+  const pageSize =
+    Number(searchParams.get("pageSize") ?? searchParams.get("limit")) || 10;
   const module = searchParams.get("module") || "";
   const resource = searchParams.get("resource") || "";
   const isEnabled = searchParams.get("isEnabled");
@@ -39,9 +43,15 @@ export function PermissionListPage() {
   const { data, isLoading } =
     usePermissionControllerFindAll<PermissionListResponse>({
       page,
-      limit,
+      pageSize,
       module: module || undefined,
       resource: resource || undefined,
+      isEnabled:
+        isEnabled === "true"
+          ? "true"
+          : isEnabled === "false"
+            ? "false"
+            : undefined,
     });
 
   const handleSearch = () => {
@@ -63,7 +73,7 @@ export function PermissionListPage() {
   const handleReset = () => {
     setModuleFilter("");
     setResourceFilter("");
-    setSearchParams({ page: "1", limit: String(limit) });
+    setSearchParams({ page: "1", pageSize: String(pageSize) });
   };
 
   const handlePageChange = (newPage: number) => {
@@ -172,13 +182,19 @@ export function PermissionListPage() {
       <Card>
         <CardContent className="p-0">
           <PermissionTable
-            data={Array.isArray(data?.data) ? data.data : []}
+            data={Array.isArray(data?.items) ? data.items : []}
             isLoading={isLoading}
             pagination={{
               page,
-              limit,
-              total: data?.meta?.total || 0,
-              totalPages: data?.meta?.totalPages || 0,
+              pageSize: data?.pagination?.pageSize ?? pageSize,
+              total: data?.pagination?.total || 0,
+              totalPages:
+                (data?.pagination?.pageSize ?? pageSize) > 0
+                  ? Math.ceil(
+                      (data?.pagination?.total || 0) /
+                        (data?.pagination?.pageSize ?? pageSize),
+                    )
+                  : 0,
             }}
             onPageChange={handlePageChange}
             onEdit={handleEdit}

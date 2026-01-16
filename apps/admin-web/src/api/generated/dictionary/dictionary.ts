@@ -308,7 +308,7 @@ export const useDictionaryControllerCreate = <
 2. 对比本地缓存的 hash
 3. 仅在 hash 变化时调用 `/type/:type` 拉取完整数据
 
-详见: [Dictionary API 前端使用指南](../../docs/features/DICTIONARY_API_GUIDE.md)
+详见: [Dictionary API 前端使用指南](../../docs/features/dictionary-api-guide.md)
  * @summary 获取字典元数据（轻量级）✨
  */
 export const dictionaryControllerGetMetaByType = (
@@ -699,7 +699,7 @@ export function useDictionaryControllerFindByType<
  * @summary 字典详情
  */
 export const dictionaryControllerFindOne = (
-  id: number,
+  id: string,
   options?: SecondParameter<typeof customFetch>,
   signal?: AbortSignal,
 ) => {
@@ -709,7 +709,7 @@ export const dictionaryControllerFindOne = (
   );
 };
 
-export const getDictionaryControllerFindOneQueryKey = (id?: number) => {
+export const getDictionaryControllerFindOneQueryKey = (id?: string) => {
   return [`/v1/dictionaries/${id}`] as const;
 };
 
@@ -717,7 +717,7 @@ export const getDictionaryControllerFindOneQueryOptions = <
   TData = Awaited<ReturnType<typeof dictionaryControllerFindOne>>,
   TError = unknown,
 >(
-  id: number,
+  id: string,
   options?: {
     query?: Partial<
       UseQueryOptions<
@@ -759,7 +759,7 @@ export function useDictionaryControllerFindOne<
   TData = Awaited<ReturnType<typeof dictionaryControllerFindOne>>,
   TError = unknown,
 >(
-  id: number,
+  id: string,
   options: {
     query: Partial<
       UseQueryOptions<
@@ -786,7 +786,7 @@ export function useDictionaryControllerFindOne<
   TData = Awaited<ReturnType<typeof dictionaryControllerFindOne>>,
   TError = unknown,
 >(
-  id: number,
+  id: string,
   options?: {
     query?: Partial<
       UseQueryOptions<
@@ -813,7 +813,7 @@ export function useDictionaryControllerFindOne<
   TData = Awaited<ReturnType<typeof dictionaryControllerFindOne>>,
   TError = unknown,
 >(
-  id: number,
+  id: string,
   options?: {
     query?: Partial<
       UseQueryOptions<
@@ -836,7 +836,7 @@ export function useDictionaryControllerFindOne<
   TData = Awaited<ReturnType<typeof dictionaryControllerFindOne>>,
   TError = unknown,
 >(
-  id: number,
+  id: string,
   options?: {
     query?: Partial<
       UseQueryOptions<
@@ -868,7 +868,7 @@ export function useDictionaryControllerFindOne<
  * @summary 更新字典
  */
 export const dictionaryControllerUpdate = (
-  id: number,
+  id: string,
   updateDictionaryDto: UpdateDictionaryDto,
   options?: SecondParameter<typeof customFetch>,
 ) => {
@@ -890,14 +890,14 @@ export const getDictionaryControllerUpdateMutationOptions = <
   mutation?: UseMutationOptions<
     Awaited<ReturnType<typeof dictionaryControllerUpdate>>,
     TError,
-    { id: number; data: UpdateDictionaryDto },
+    { id: string; data: UpdateDictionaryDto },
     TContext
   >;
   request?: SecondParameter<typeof customFetch>;
 }): UseMutationOptions<
   Awaited<ReturnType<typeof dictionaryControllerUpdate>>,
   TError,
-  { id: number; data: UpdateDictionaryDto },
+  { id: string; data: UpdateDictionaryDto },
   TContext
 > => {
   const mutationKey = ["dictionaryControllerUpdate"];
@@ -911,7 +911,7 @@ export const getDictionaryControllerUpdateMutationOptions = <
 
   const mutationFn: MutationFunction<
     Awaited<ReturnType<typeof dictionaryControllerUpdate>>,
-    { id: number; data: UpdateDictionaryDto }
+    { id: string; data: UpdateDictionaryDto }
   > = (props) => {
     const { id, data } = props ?? {};
 
@@ -938,7 +938,7 @@ export const useDictionaryControllerUpdate = <
     mutation?: UseMutationOptions<
       Awaited<ReturnType<typeof dictionaryControllerUpdate>>,
       TError,
-      { id: number; data: UpdateDictionaryDto },
+      { id: string; data: UpdateDictionaryDto },
       TContext
     >;
     request?: SecondParameter<typeof customFetch>;
@@ -947,7 +947,7 @@ export const useDictionaryControllerUpdate = <
 ): UseMutationResult<
   Awaited<ReturnType<typeof dictionaryControllerUpdate>>,
   TError,
-  { id: number; data: UpdateDictionaryDto },
+  { id: string; data: UpdateDictionaryDto },
   TContext
 > => {
   const mutationOptions = getDictionaryControllerUpdateMutationOptions(options);
@@ -959,7 +959,7 @@ export const useDictionaryControllerUpdate = <
  * @summary 删除字典（软删除）
  */
 export const dictionaryControllerRemove = (
-  id: number,
+  id: string,
   options?: SecondParameter<typeof customFetch>,
 ) => {
   return customFetch<void>(
@@ -975,14 +975,14 @@ export const getDictionaryControllerRemoveMutationOptions = <
   mutation?: UseMutationOptions<
     Awaited<ReturnType<typeof dictionaryControllerRemove>>,
     TError,
-    { id: number },
+    { id: string },
     TContext
   >;
   request?: SecondParameter<typeof customFetch>;
 }): UseMutationOptions<
   Awaited<ReturnType<typeof dictionaryControllerRemove>>,
   TError,
-  { id: number },
+  { id: string },
   TContext
 > => {
   const mutationKey = ["dictionaryControllerRemove"];
@@ -996,7 +996,7 @@ export const getDictionaryControllerRemoveMutationOptions = <
 
   const mutationFn: MutationFunction<
     Awaited<ReturnType<typeof dictionaryControllerRemove>>,
-    { id: number }
+    { id: string }
   > = (props) => {
     const { id } = props ?? {};
 
@@ -1023,7 +1023,7 @@ export const useDictionaryControllerRemove = <
     mutation?: UseMutationOptions<
       Awaited<ReturnType<typeof dictionaryControllerRemove>>,
       TError,
-      { id: number },
+      { id: string },
       TContext
     >;
     request?: SecondParameter<typeof customFetch>;
@@ -1032,7 +1032,7 @@ export const useDictionaryControllerRemove = <
 ): UseMutationResult<
   Awaited<ReturnType<typeof dictionaryControllerRemove>>,
   TError,
-  { id: number },
+  { id: string },
   TContext
 > => {
   const mutationOptions = getDictionaryControllerRemoveMutationOptions(options);

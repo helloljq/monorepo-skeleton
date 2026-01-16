@@ -11,5 +11,5 @@ export interface AssignRolesDto {
    * @minItems 1
    * @maxItems 50
    */
-  roleIds: number[];
+  roleIds: string[];
 }
