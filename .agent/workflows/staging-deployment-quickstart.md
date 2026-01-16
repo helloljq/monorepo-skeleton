@@ -23,6 +23,7 @@ description: Staging 环境快速部署清单 (数据库已就绪)
 ### 1.1 获取必要的密码信息
 
 你需要从管理员或密码管理系统获取:
+
 - [ ] PostgreSQL staging 密码
 - [ ] Redis staging 密码
 - [ ] Docker Registry 登录凭证
@@ -362,7 +363,7 @@ sudo cat > /etc/nginx/sites-available/xiaoyue-staging << 'EOF'
 server {
     listen 80;
     server_name api-staging.{{DOMAIN}};
-    
+
     location / {
         proxy_pass http://localhost:8110;
         proxy_http_version 1.1;
@@ -376,7 +377,7 @@ server {
 server {
     listen 80;
     server_name admin-staging.{{DOMAIN}};
-    
+
     location / {
         proxy_pass http://localhost:3110;
         proxy_http_version 1.1;
@@ -387,7 +388,7 @@ server {
 server {
     listen 80;
     server_name www-staging.{{DOMAIN}};
-    
+
     location / {
         proxy_pass http://localhost:3210;
         proxy_http_version 1.1;

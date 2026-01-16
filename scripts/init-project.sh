@@ -215,8 +215,8 @@ cat > README.md << EOF
 
 - **Monorepo**: pnpm workspace + Turborepo
 - **Server**: NestJS 11 + Prisma + PostgreSQL + Redis + Zod
-- **Admin Web**: React 19 + Vite + shadcn/ui + TanStack Query + Zustand
-- **WWW Web**: React 19 + Vite + Tailwind CSS
+- **Admin Web**: React 18 + Vite + shadcn/ui + TanStack Query + Zustand
+- **WWW Web**: React 18 + Vite + Tailwind CSS
 - **Miniprogram**: Taro 4 + React + TypeScript
 
 ## 快速开始

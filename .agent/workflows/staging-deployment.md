@@ -30,6 +30,7 @@ docker ps | grep staging
 ```
 
 **当前状态**: ✅ **数据库已就绪**
+
 ```
 xy-postgres-staging  - 端口 5410 - 状态: healthy
 xy-redis-staging     - 端口 6310 - 状态: running
@@ -421,6 +422,7 @@ curl http://localhost:8110/metrics
 ### 8.1 配置 DNS
 
 确保以下域名解析到服务器 IP:
+
 - `api-staging.{{DOMAIN}}` → 服务器 IP
 - `admin-staging.{{DOMAIN}}` → 服务器 IP
 - `www-staging.{{DOMAIN}}` → 服务器 IP
@@ -434,7 +436,7 @@ sudo cat > /etc/nginx/sites-available/xiaoyue-staging << 'EOF'
 server {
     listen 80;
     server_name api-staging.{{DOMAIN}};
-    
+
     location / {
         proxy_pass http://localhost:8110;
         proxy_http_version 1.1;
@@ -452,7 +454,7 @@ server {
 server {
     listen 80;
     server_name admin-staging.{{DOMAIN}};
-    
+
     location / {
         proxy_pass http://localhost:3110;
         proxy_http_version 1.1;
@@ -467,7 +469,7 @@ server {
 server {
     listen 80;
     server_name www-staging.{{DOMAIN}};
-    
+
     location / {
         proxy_pass http://localhost:3210;
         proxy_http_version 1.1;
@@ -533,12 +535,14 @@ curl https://api-staging.{{DOMAIN}}/health
 ## 常用运维命令
 
 ### 查看服务状态
+
 ```bash
 cd /opt/{{NAME}}
 docker-compose -f docker-compose.staging.yml ps
 ```
 
 ### 重启服务
+
 ```bash
 # 重启所有服务
 docker-compose -f docker-compose.staging.yml restart
@@ -548,6 +552,7 @@ docker-compose -f docker-compose.staging.yml restart server
 ```
 
 ### 查看日志
+
 ```bash
 # 实时日志
 docker logs -f xiaoyue-server-staging
@@ -557,6 +562,7 @@ docker logs xiaoyue-server-staging --tail 100
 ```
 
 ### 更新部署
+
 ```bash
 # 拉取最新镜像
 docker-compose -f docker-compose.staging.yml pull
@@ -569,6 +575,7 @@ docker exec xiaoyue-server-staging pnpm prisma migrate deploy
 ```
 
 ### 停止服务
+
 ```bash
 docker-compose -f docker-compose.staging.yml down
 ```
