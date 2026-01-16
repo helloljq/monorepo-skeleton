@@ -10,10 +10,11 @@ import { PrismaService } from "../../database/prisma/prisma.service";
  * 用户身份信息（带角色）
  */
 export interface UserWithRoles {
-  id: number;
-  email: string | null;
+  // Public ID (ADR-ID-001): never expose auto-increment id to clients.
+  id: string;
+  email: string;
   name: string | null;
-  status: string;
+  status: "ACTIVE" | "DISABLED" | "PENDING";
   avatar: string | null;
   roles: string[];
 }
@@ -23,6 +24,8 @@ export interface UserWithRoles {
  */
 export interface LoginResult {
   user: UserWithRoles;
+  // Internal numeric id used for DB relations / JWT payload.
+  internalUserId: number;
   isNewUser: boolean;
 }
 
@@ -48,14 +51,14 @@ export class IdentityService {
         },
       },
       include: {
-        User: {
+        user: {
           include: {
-            UserRole_UserRole_userIdToUser: {
+            userRoles: {
               where: {
                 OR: [{ expiresAt: null }, { expiresAt: { gt: new Date() } }],
               },
               include: {
-                Role: {
+                role: {
                   select: { code: true, isEnabled: true, deletedAt: true },
                 },
               },
@@ -74,7 +77,7 @@ export class IdentityService {
     }
 
     // 2. 检查用户状态
-    if (identity.User.status === "DISABLED") {
+    if (identity.user.status === "DISABLED") {
       throw new BusinessException({
         code: ApiErrorCode.AUTH_USER_DISABLED,
         message: "User account is disabled",
@@ -101,19 +104,20 @@ export class IdentityService {
     }
 
     // 4. 提取有效角色
-    const roles = identity.User.UserRole_UserRole_userIdToUser.filter(
-      (ur) => ur.Role.isEnabled && !ur.Role.deletedAt,
-    ).map((ur) => ur.Role.code);
+    const roles = identity.user.userRoles
+      .filter((ur) => ur.role.isEnabled && !ur.role.deletedAt)
+      .map((ur) => ur.role.code);
 
     return {
       user: {
-        id: identity.User.id,
-        email: identity.User.email,
-        name: identity.User.name,
-        status: identity.User.status,
-        avatar: identity.User.avatar,
+        id: identity.user.publicId,
+        email: identity.user.email,
+        name: identity.user.name,
+        status: identity.user.status,
+        avatar: identity.user.avatar,
         roles,
       },
+      internalUserId: identity.user.id,
       isNewUser: false,
     };
   }
@@ -131,14 +135,14 @@ export class IdentityService {
         },
       },
       include: {
-        User: {
+        user: {
           include: {
-            UserRole_UserRole_userIdToUser: {
+            userRoles: {
               where: {
                 OR: [{ expiresAt: null }, { expiresAt: { gt: new Date() } }],
               },
               include: {
-                Role: {
+                role: {
                   select: { code: true, isEnabled: true, deletedAt: true },
                 },
               },
@@ -151,7 +155,7 @@ export class IdentityService {
     // 2. 如果身份存在，直接返回
     if (identity) {
       // 检查用户状态
-      if (identity.User.status === "DISABLED") {
+      if (identity.user.status === "DISABLED") {
         throw new BusinessException({
           code: ApiErrorCode.AUTH_USER_DISABLED,
           message: "User account is disabled",
@@ -159,19 +163,20 @@ export class IdentityService {
         });
       }
 
-      const roles = identity.User.UserRole_UserRole_userIdToUser.filter(
-        (ur) => ur.Role.isEnabled && !ur.Role.deletedAt,
-      ).map((ur) => ur.Role.code);
+      const roles = identity.user.userRoles
+        .filter((ur) => ur.role.isEnabled && !ur.role.deletedAt)
+        .map((ur) => ur.role.code);
 
       return {
         user: {
-          id: identity.User.id,
-          email: identity.User.email,
-          name: identity.User.name,
-          status: identity.User.status,
-          avatar: identity.User.avatar,
+          id: identity.user.publicId,
+          email: identity.user.email,
+          name: identity.user.name,
+          status: identity.user.status,
+          avatar: identity.user.avatar,
           roles,
         },
+        internalUserId: identity.user.id,
         isNewUser: false,
       };
     }
@@ -181,6 +186,7 @@ export class IdentityService {
 
     return {
       user: newUser,
+      internalUserId: newUser.internalUserId,
       isNewUser: true,
     };
   }
@@ -190,7 +196,7 @@ export class IdentityService {
    */
   private async createUserWithPhoneIdentity(
     phone: string,
-  ): Promise<UserWithRoles> {
+  ): Promise<UserWithRoles & { internalUserId: number }> {
     // 查找默认 USER 角色
     const userRole = await this.prisma.role.findUnique({
       where: { code: "USER" },
@@ -205,7 +211,7 @@ export class IdentityService {
           status: "ACTIVE",
           // 分配默认角色
           ...(userRole && {
-            UserRole_UserRole_userIdToUser: {
+            userRoles: {
               create: {
                 roleId: userRole.id,
               },
@@ -228,12 +234,13 @@ export class IdentityService {
     });
 
     return {
-      id: result.id,
+      id: result.publicId,
       email: result.email,
       name: result.name,
       status: result.status,
       avatar: result.avatar,
       roles: userRole ? ["USER"] : [],
+      internalUserId: result.id,
     };
   }
 
@@ -246,7 +253,7 @@ export class IdentityService {
     email: string,
     password: string,
     name?: string,
-  ): Promise<UserWithRoles> {
+  ): Promise<UserWithRoles & { internalUserId: number }> {
     const normalizedEmail = email.toLowerCase();
 
     // 1. 检查邮箱是否已被使用
@@ -311,7 +318,7 @@ export class IdentityService {
           status: "ACTIVE",
           // 分配角色
           ...(targetRole && {
-            UserRole_UserRole_userIdToUser: {
+            userRoles: {
               create: {
                 roleId: targetRole.id,
               },
@@ -334,12 +341,13 @@ export class IdentityService {
     });
 
     return {
-      id: result.id,
+      id: result.publicId,
       email: result.email,
       name: result.name,
       status: result.status,
       avatar: result.avatar,
       roles: targetRole ? [targetRole.code] : [],
+      internalUserId: result.id,
     };
   }
 
@@ -350,7 +358,7 @@ export class IdentityService {
     return this.prisma.userIdentity.findMany({
       where: { userId },
       select: {
-        id: true,
+        publicId: true,
         provider: true,
         providerId: true,
         verified: true,
@@ -541,10 +549,13 @@ export class IdentityService {
   /**
    * 解绑身份
    */
-  async unbindIdentity(userId: number, identityId: number): Promise<void> {
+  async unbindIdentity(
+    userId: number,
+    identityPublicId: string,
+  ): Promise<void> {
     // 检查身份是否属于当前用户
     const identity = await this.prisma.userIdentity.findFirst({
-      where: { id: identityId, userId },
+      where: { publicId: identityPublicId, userId },
     });
 
     if (!identity) {
@@ -566,11 +577,11 @@ export class IdentityService {
     }
 
     await this.prisma.userIdentity.delete({
-      where: { id: identityId },
+      where: { publicId: identityPublicId },
     });
 
     this.logger.debug(
-      { userId, identityId, provider: identity.provider },
+      { userId, identityPublicId, provider: identity.provider },
       "[identity] Identity unbound",
     );
   }

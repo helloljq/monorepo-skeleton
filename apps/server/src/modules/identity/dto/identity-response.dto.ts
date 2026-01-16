@@ -2,8 +2,8 @@ import { ApiProperty } from "@nestjs/swagger";
 import { IdentityProvider } from "@prisma/client";
 
 export class IdentityItemDto {
-  @ApiProperty({ description: "Identity ID" })
-  id!: number;
+  @ApiProperty({ description: "Identity ID (public)", format: "uuid" })
+  id!: string;
 
   @ApiProperty({ description: "Identity provider", enum: IdentityProvider })
   provider!: IdentityProvider;

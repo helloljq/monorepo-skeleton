@@ -5,18 +5,17 @@ import {
   NestInterceptor,
 } from "@nestjs/common";
 import { Reflector } from "@nestjs/core";
-import { Request } from "express";
-import { Observable } from "rxjs";
+import type { Request } from "express";
+import type { Observable } from "rxjs";
 import { map } from "rxjs/operators";
 
 import { RAW_RESPONSE_KEY } from "../decorators/raw-response.decorator";
 import { SUCCESS_CODE } from "../errors/error-codes";
 
 export interface Response<T> {
-  code: number;
+  code: string;
   message: string;
   data: T;
-  timestamp: number;
 }
 
 @Injectable()
@@ -54,9 +53,8 @@ export class TransformInterceptor<T> implements NestInterceptor<
 
         return {
           code: SUCCESS_CODE,
-          message: "success",
+          message: "ok",
           data: transformedData as T,
-          timestamp: Date.now(),
         };
       }),
     );

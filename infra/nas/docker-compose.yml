@@ -2,7 +2,7 @@
 # 部署 dev 和 staging 环境的 PostgreSQL 和 Redis
 #
 # 使用方法:
-#   1. 复制此文件到 NAS: /docker/{{NAME}}/docker-compose.yml
+#   1. 复制此文件到 NAS: /docker/monorepo-skeleton/docker-compose.yml
 #   2. 复制 .env.example 为 .env 并填入实际密码
 #   3. 运行: docker compose up -d
 

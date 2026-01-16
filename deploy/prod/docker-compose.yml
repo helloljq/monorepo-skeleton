@@ -2,47 +2,47 @@
 # 包含完整服务栈，启用资源限制和严格重启策略
 #
 # 使用方法:
-#   cd /opt/{{NAME}}/prod
+#   cd /opt/monorepo-skeleton/prod
 #   cp .env.example .env  # 编辑 .env 设置密码和镜像仓库
 #   docker compose up -d
 #
 # 安全说明:
 #   - 数据库端口仅绑定 127.0.0.1，外部访问需通过 SSH 隧道
-#   - 如需远程运维: ssh -L {{PORT_POSTGRES_PROD}}:127.0.0.1:{{PORT_POSTGRES_PROD}} user@server
+#   - 如需远程运维: ssh -L 17210:127.0.0.1:17210 user@server
 
-name: {{NAME}}-prod
+name: monorepo-skeleton-prod
 
 services:
   # ==================== 数据库服务 ====================
   postgres:
     image: postgres:16-alpine
-    container_name: {{NAME}}-prod-postgres
+    container_name: monorepo-skeleton-prod-postgres
     restart: always
     environment:
-      POSTGRES_DB: ${POSTGRES_DB:-{{NAME}}_prod}
-      POSTGRES_USER: ${POSTGRES_USER:-{{NAME}}}
+      POSTGRES_DB: ${POSTGRES_DB:-monorepo-skeleton_prod}
+      POSTGRES_USER: ${POSTGRES_USER:-monorepo-skeleton}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
       TZ: Asia/Shanghai
     ports:
       # 仅绑定本机，外部访问需 SSH 隧道
-      - "127.0.0.1:{{PORT_POSTGRES_PROD}}:5432"
+      - "127.0.0.1:17210:5432"
     volumes:
-      - {{NAME}}-prod-postgres:/var/lib/postgresql/data
+      - monorepo-skeleton-prod-postgres:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-{{NAME}}}"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-monorepo-skeleton}"]
       interval: 30s
       timeout: 10s
       retries: 3
     networks:
-      - {{NAME}}-prod-net
+      - monorepo-skeleton-prod-net
     deploy:
       resources:
         limits:
           memory: 2G
-          cpus: '2.0'
+          cpus: "2.0"
         reservations:
           memory: 512M
-          cpus: '0.5'
+          cpus: "0.5"
     logging:
       driver: "json-file"
       options:
@@ -51,7 +51,7 @@ services:
 
   redis:
     image: redis:7-alpine
-    container_name: {{NAME}}-prod-redis
+    container_name: monorepo-skeleton-prod-redis
     restart: always
     command: >
       redis-server
@@ -65,24 +65,24 @@ services:
       TZ: Asia/Shanghai
     ports:
       # 仅绑定本机，外部访问需 SSH 隧道
-      - "127.0.0.1:{{PORT_REDIS_PROD}}:6379"
+      - "127.0.0.1:17211:6379"
     volumes:
-      - {{NAME}}-prod-redis:/data
+      - monorepo-skeleton-prod-redis:/data
     healthcheck:
       test: ["CMD-SHELL", "redis-cli --no-auth-warning ping | grep -q PONG"]
       interval: 30s
       timeout: 10s
       retries: 3
     networks:
-      - {{NAME}}-prod-net
+      - monorepo-skeleton-prod-net
     deploy:
       resources:
         limits:
           memory: 1G
-          cpus: '1.0'
+          cpus: "1.0"
         reservations:
           memory: 256M
-          cpus: '0.25'
+          cpus: "0.25"
     logging:
       driver: "json-file"
       options:
@@ -93,7 +93,7 @@ services:
   # 每个服务使用独立的 IMAGE_TAG，支持按需部署（仅更新变更的服务）
   server:
     image: ${DOCKER_REGISTRY:?DOCKER_REGISTRY is required}/${DOCKER_NAMESPACE:?DOCKER_NAMESPACE is required}/server:${SERVER_IMAGE_TAG:-production-latest}
-    container_name: {{NAME}}-prod-server
+    container_name: monorepo-skeleton-prod-server
     restart: always
     depends_on:
       postgres:
@@ -103,7 +103,7 @@ services:
     environment:
       NODE_ENV: production
       PORT: 8100
-      DATABASE_URL: postgresql://${POSTGRES_USER:-{{NAME}}}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-{{NAME}}_prod}
+      DATABASE_URL: postgresql://${POSTGRES_USER:-monorepo-skeleton}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-monorepo-skeleton_prod}
       REDIS_URL: redis://:${REDIS_PASSWORD}@redis:6379/0
       JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET:?JWT_ACCESS_SECRET is required}
       JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:?JWT_REFRESH_SECRET is required}
@@ -111,23 +111,29 @@ services:
       CORS_ORIGINS: ${CORS_ORIGINS:-}
       TZ: Asia/Shanghai
     ports:
-      - "{{PORT_SERVER_PROD}}:8100"
+      - "17200:8100"
     healthcheck:
-      test: ["CMD", "node", "-e", "require('http').get('http://localhost:8100/health', (r) => process.exit(r.statusCode === 200 ? 0 : 1))"]
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "require('http').get('http://localhost:8100/health', (r) => process.exit(r.statusCode === 200 ? 0 : 1))",
+        ]
       interval: 30s
       timeout: 10s
       start_period: 40s
       retries: 3
     networks:
-      - {{NAME}}-prod-net
+      - monorepo-skeleton-prod-net
     deploy:
       resources:
         limits:
           memory: 2G
-          cpus: '2.0'
+          cpus: "2.0"
         reservations:
           memory: 512M
-          cpus: '0.5'
+          cpus: "0.5"
     logging:
       driver: "json-file"
       options:
@@ -136,7 +142,7 @@ services:
 
   admin-web:
     image: ${DOCKER_REGISTRY}/${DOCKER_NAMESPACE}/admin-web:${ADMIN_IMAGE_TAG:-production-latest}
-    container_name: {{NAME}}-prod-admin-web
+    container_name: monorepo-skeleton-prod-admin-web
     restart: always
     depends_on:
       server:
@@ -144,14 +150,18 @@ services:
     environment:
       TZ: Asia/Shanghai
     ports:
-      - "{{PORT_ADMIN_PROD}}:80"
+      - "17201:80"
     healthcheck:
-      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://127.0.0.1/ || exit 1"]
+      test:
+        [
+          "CMD-SHELL",
+          "wget --no-verbose --tries=1 --spider http://127.0.0.1/ || exit 1",
+        ]
       interval: 30s
       timeout: 10s
       retries: 3
     networks:
-      - {{NAME}}-prod-net
+      - monorepo-skeleton-prod-net
     logging:
       driver: "json-file"
       options:
@@ -160,7 +170,7 @@ services:
 
   www-web:
     image: ${DOCKER_REGISTRY}/${DOCKER_NAMESPACE}/www-web:${WWW_IMAGE_TAG:-production-latest}
-    container_name: {{NAME}}-prod-www-web
+    container_name: monorepo-skeleton-prod-www-web
     restart: always
     depends_on:
       server:
@@ -168,14 +178,18 @@ services:
     environment:
       TZ: Asia/Shanghai
     ports:
-      - "{{PORT_WWW_PROD}}:80"
+      - "17202:80"
     healthcheck:
-      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://127.0.0.1/ || exit 1"]
+      test:
+        [
+          "CMD-SHELL",
+          "wget --no-verbose --tries=1 --spider http://127.0.0.1/ || exit 1",
+        ]
       interval: 30s
       timeout: 10s
       retries: 3
     networks:
-      - {{NAME}}-prod-net
+      - monorepo-skeleton-prod-net
     logging:
       driver: "json-file"
       options:
@@ -183,9 +197,9 @@ services:
         max-file: "5"
 
 volumes:
-  {{NAME}}-prod-postgres:
-  {{NAME}}-prod-redis:
+  monorepo-skeleton-prod-postgres:
+  monorepo-skeleton-prod-redis:
 
 networks:
-  {{NAME}}-prod-net:
+  monorepo-skeleton-prod-net:
     driver: bridge

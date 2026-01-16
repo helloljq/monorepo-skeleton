@@ -27,10 +27,9 @@ import { PrismaService } from "./../src/database/prisma/prisma.service";
 type RedisClient = import("ioredis").default;
 
 interface ApiResponse<T = unknown> {
-  code: number;
+  code: string;
   message: string;
   data: T;
-  timestamp: number;
 }
 
 interface LoginResponse {
@@ -73,7 +72,7 @@ describe("RBAC Permission System (e2e)", () => {
     app =
       moduleFixture.createNestApplication() as unknown as INestApplication<App>;
     app.enableShutdownHooks();
-    app.setGlobalPrefix("api/v1");
+    app.setGlobalPrefix("v1");
 
     const httpAdapter = app.get<HttpAdapterHost>(HttpAdapterHost);
     app.useGlobalFilters(
@@ -86,7 +85,7 @@ describe("RBAC Permission System (e2e)", () => {
     redis = app.get<RedisClient>(REDIS_CLIENT);
     app.useGlobalInterceptors(
       new IdempotencyInterceptor(reflector, redis, configService),
-      new AuditContextInterceptor(),
+      new AuditContextInterceptor(reflector),
       new TransformInterceptor(reflector),
     );
 
@@ -106,13 +105,13 @@ describe("RBAC Permission System (e2e)", () => {
 
     // 注册测试用户
     const userRegResponse = await request(app.getHttpServer())
-      .post("/api/v1/auth/register")
+      .post("/v1/auth/register")
       .send(testUser);
     testUserId = (userRegResponse.body as ApiResponse<{ id: number }>).data.id;
 
     // 注册测试管理员
     const adminRegResponse = await request(app.getHttpServer())
-      .post("/api/v1/auth/register")
+      .post("/v1/auth/register")
       .send(testAdmin);
     testAdminId = (adminRegResponse.body as ApiResponse<{ id: number }>).data
       .id;
@@ -133,7 +132,7 @@ describe("RBAC Permission System (e2e)", () => {
 
     // 登录获取 token
     const userLoginResponse = await request(app.getHttpServer())
-      .post("/api/v1/auth/login")
+      .post("/v1/auth/login")
       .send({
         email: testUser.email,
         password: testUser.password,
@@ -143,7 +142,7 @@ describe("RBAC Permission System (e2e)", () => {
       .data.accessToken;
 
     const adminLoginResponse = await request(app.getHttpServer())
-      .post("/api/v1/auth/login")
+      .post("/v1/auth/login")
       .send({
         email: testAdmin.email,
         password: testAdmin.password,
@@ -177,42 +176,42 @@ describe("RBAC Permission System (e2e)", () => {
   describe("Permission Check - Basic Access Control", () => {
     it("USER role should access /users (has user:read permission)", async () => {
       const response = await request(app.getHttpServer())
-        .get("/api/v1/users")
+        .get("/v1/users")
         .set("Authorization", `Bearer ${userAccessToken}`)
         .expect(200);
 
       const body = response.body as ApiResponse;
-      expect(body.code).toBe(0);
+      expect(body.code).toBe("SUCCESS");
     });
 
     it("USER role should be denied access to /roles (no role:read permission)", async () => {
       const response = await request(app.getHttpServer())
-        .get("/api/v1/roles")
+        .get("/v1/roles")
         .set("Authorization", `Bearer ${userAccessToken}`)
         .expect(403);
 
       const body = response.body as ApiResponse;
-      expect(body.code).toBe(10003); // FORBIDDEN
+      expect(body.code).toBe("FORBIDDEN"); // FORBIDDEN
     });
 
     it("ADMIN role should access /roles (has role:read permission)", async () => {
       const response = await request(app.getHttpServer())
-        .get("/api/v1/roles")
+        .get("/v1/roles")
         .set("Authorization", `Bearer ${adminAccessToken}`)
         .expect(200);
 
       const body = response.body as ApiResponse;
-      expect(body.code).toBe(0);
+      expect(body.code).toBe("SUCCESS");
     });
 
     it("ADMIN role should access /permissions (has permission:read permission)", async () => {
       const response = await request(app.getHttpServer())
-        .get("/api/v1/permissions")
+        .get("/v1/permissions")
         .set("Authorization", `Bearer ${adminAccessToken}`)
         .expect(200);
 
       const body = response.body as ApiResponse;
-      expect(body.code).toBe(0);
+      expect(body.code).toBe("SUCCESS");
     });
   });
 
@@ -220,18 +219,18 @@ describe("RBAC Permission System (e2e)", () => {
     it("should gain permissions after role assignment and re-login", async () => {
       // 1. 验证用户当前无法访问 /roles
       await request(app.getHttpServer())
-        .get("/api/v1/roles")
+        .get("/v1/roles")
         .set("Authorization", `Bearer ${userAccessToken}`)
         .expect(403);
 
       // 2. 管理员为用户分配 GUEST 角色 (有 role:read 权限)
       const assignResponse = await request(app.getHttpServer())
-        .post(`/api/v1/users/${testUserId}/roles`)
+        .post(`/v1/users/${testUserId}/roles`)
         .set("Authorization", `Bearer ${adminAccessToken}`)
         .send({ roleId: guestRoleId })
         .expect(201);
 
-      expect((assignResponse.body as ApiResponse).code).toBe(0);
+      expect((assignResponse.body as ApiResponse).code).toBe("SUCCESS");
 
       // 3. 清理权限缓存使新权限立即生效
       const cacheKeys = await redis.keys("permission:role:*");
@@ -242,7 +241,7 @@ describe("RBAC Permission System (e2e)", () => {
       // 4. 重新登录以获取包含新角色的 JWT token
       // (JWT token 在登录时固化角色信息，分配新角色后需要重新登录)
       const reLoginResponse = await request(app.getHttpServer())
-        .post("/api/v1/auth/login")
+        .post("/v1/auth/login")
         .send({
           email: testUser.email,
           password: testUser.password,
@@ -255,11 +254,11 @@ describe("RBAC Permission System (e2e)", () => {
 
       // 5. 使用新 token，用户现在应该能访问 /roles
       const rolesResponse = await request(app.getHttpServer())
-        .get("/api/v1/roles")
+        .get("/v1/roles")
         .set("Authorization", `Bearer ${newAccessToken}`)
         .expect(200);
 
-      expect((rolesResponse.body as ApiResponse).code).toBe(0);
+      expect((rolesResponse.body as ApiResponse).code).toBe("SUCCESS");
 
       // 更新 userAccessToken 供后续测试使用
       userAccessToken = newAccessToken;
@@ -268,17 +267,17 @@ describe("RBAC Permission System (e2e)", () => {
     it("should lose permissions after role removal and re-login", async () => {
       // 1. 验证用户当前可以访问 /roles (上个测试分配了 GUEST 角色并重新登录)
       await request(app.getHttpServer())
-        .get("/api/v1/roles")
+        .get("/v1/roles")
         .set("Authorization", `Bearer ${userAccessToken}`)
         .expect(200);
 
       // 2. 管理员移除用户的 GUEST 角色
       const removeResponse = await request(app.getHttpServer())
-        .delete(`/api/v1/users/${testUserId}/roles/${guestRoleId}`)
+        .delete(`/v1/users/${testUserId}/roles/${guestRoleId}`)
         .set("Authorization", `Bearer ${adminAccessToken}`)
         .expect(200);
 
-      expect((removeResponse.body as ApiResponse).code).toBe(0);
+      expect((removeResponse.body as ApiResponse).code).toBe("SUCCESS");
 
       // 3. 清理权限缓存
       const cacheKeys = await redis.keys("permission:role:*");
@@ -288,7 +287,7 @@ describe("RBAC Permission System (e2e)", () => {
 
       // 4. 重新登录以获取更新后的 JWT token
       const reLoginResponse = await request(app.getHttpServer())
-        .post("/api/v1/auth/login")
+        .post("/v1/auth/login")
         .send({
           email: testUser.email,
           password: testUser.password,
@@ -301,53 +300,53 @@ describe("RBAC Permission System (e2e)", () => {
 
       // 5. 使用新 token，用户现在应该无法访问 /roles
       const rolesResponse = await request(app.getHttpServer())
-        .get("/api/v1/roles")
+        .get("/v1/roles")
         .set("Authorization", `Bearer ${newAccessToken}`)
         .expect(403);
 
-      expect((rolesResponse.body as ApiResponse).code).toBe(10003); // FORBIDDEN
+      expect((rolesResponse.body as ApiResponse).code).toBe("FORBIDDEN"); // FORBIDDEN
     });
   });
 
   describe("Permission Check - Edge Cases", () => {
     it("should return 401 for unauthenticated requests to protected endpoint", async () => {
       const response = await request(app.getHttpServer())
-        .get("/api/v1/users")
+        .get("/v1/users")
         .expect(401);
 
       const body = response.body as ApiResponse;
-      expect(body.code).toBe(10002); // UNAUTHORIZED
+      expect(body.code).toBe("UNAUTHORIZED"); // UNAUTHORIZED
     });
 
     it("should return 401 for invalid token", async () => {
       const response = await request(app.getHttpServer())
-        .get("/api/v1/users")
+        .get("/v1/users")
         .set("Authorization", "Bearer invalid-token")
         .expect(401);
 
       const body = response.body as ApiResponse;
-      expect(body.code).toBe(10002); // UNAUTHORIZED
+      expect(body.code).toBe("UNAUTHORIZED"); // UNAUTHORIZED
     });
 
     it("should allow ADMIN to assign roles to users", async () => {
       // 管理员有 user:assign-role 权限
       const response = await request(app.getHttpServer())
-        .get(`/api/v1/users/${testUserId}/roles`)
+        .get(`/v1/users/${testUserId}/roles`)
         .set("Authorization", `Bearer ${adminAccessToken}`)
         .expect(200);
 
-      expect((response.body as ApiResponse).code).toBe(0);
+      expect((response.body as ApiResponse).code).toBe("SUCCESS");
     });
 
     it("USER role should be denied from assigning roles", async () => {
       // 普通用户没有 user:assign-role 权限
       const response = await request(app.getHttpServer())
-        .post(`/api/v1/users/${testAdminId}/roles`)
+        .post(`/v1/users/${testAdminId}/roles`)
         .set("Authorization", `Bearer ${userAccessToken}`)
         .send({ roleId: guestRoleId })
         .expect(403);
 
-      expect((response.body as ApiResponse).code).toBe(10003); // FORBIDDEN
+      expect((response.body as ApiResponse).code).toBe("FORBIDDEN"); // FORBIDDEN
     });
   });
 
@@ -356,7 +355,7 @@ describe("RBAC Permission System (e2e)", () => {
 
     it("ADMIN should be able to create a new role", async () => {
       const response = await request(app.getHttpServer())
-        .post("/api/v1/roles")
+        .post("/v1/roles")
         .set("Authorization", `Bearer ${adminAccessToken}`)
         .send({
           code: `TEST_ROLE_${Date.now()}`,
@@ -366,13 +365,13 @@ describe("RBAC Permission System (e2e)", () => {
         .expect(201);
 
       const body = response.body as ApiResponse<{ id: number }>;
-      expect(body.code).toBe(0);
+      expect(body.code).toBe("SUCCESS");
       testRoleId = body.data.id;
     });
 
     it("USER should be denied from creating roles", async () => {
       const response = await request(app.getHttpServer())
-        .post("/api/v1/roles")
+        .post("/v1/roles")
         .set("Authorization", `Bearer ${userAccessToken}`)
         .send({
           code: `FORBIDDEN_ROLE_${Date.now()}`,
@@ -380,7 +379,7 @@ describe("RBAC Permission System (e2e)", () => {
         })
         .expect(403);
 
-      expect((response.body as ApiResponse).code).toBe(10003); // FORBIDDEN
+      expect((response.body as ApiResponse).code).toBe("FORBIDDEN"); // FORBIDDEN
     });
 
     it("ADMIN should be able to update a role", async () => {
@@ -389,14 +388,14 @@ describe("RBAC Permission System (e2e)", () => {
       }
 
       const response = await request(app.getHttpServer())
-        .patch(`/api/v1/roles/${testRoleId}`)
+        .patch(`/v1/roles/${testRoleId}`)
         .set("Authorization", `Bearer ${adminAccessToken}`)
         .send({
           name: "Updated Test Role",
         })
         .expect(200);
 
-      expect((response.body as ApiResponse).code).toBe(0);
+      expect((response.body as ApiResponse).code).toBe("SUCCESS");
     });
 
     it("ADMIN should be able to delete a role", async () => {
@@ -405,11 +404,11 @@ describe("RBAC Permission System (e2e)", () => {
       }
 
       const response = await request(app.getHttpServer())
-        .delete(`/api/v1/roles/${testRoleId}`)
+        .delete(`/v1/roles/${testRoleId}`)
         .set("Authorization", `Bearer ${adminAccessToken}`)
         .expect(200);
 
-      expect((response.body as ApiResponse).code).toBe(0);
+      expect((response.body as ApiResponse).code).toBe("SUCCESS");
     });
   });
 });

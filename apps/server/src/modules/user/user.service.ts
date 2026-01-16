@@ -7,6 +7,14 @@ import { ApiErrorCode } from "../../common/errors/error-codes";
 import { PrismaService } from "../../database/prisma/prisma.service";
 import { AssignRoleDto, QueryUserDto } from "./dto";
 
+type RoleItem = {
+  id: string;
+  code: string;
+  name: string;
+  type: string;
+  isEnabled: boolean;
+};
+
 @Injectable()
 export class UserService {
   private readonly logger = new Logger(UserService.name);
@@ -17,11 +25,21 @@ export class UserService {
    * 获取用户列表（分页）
    */
   async findAll(query: QueryUserDto) {
-    const { page, limit, id, email, name, roleId, status } = query;
-    const skip = (page - 1) * limit;
+    const {
+      page,
+      pageSize: rawPageSize,
+      limit,
+      id,
+      email,
+      name,
+      roleId,
+      status,
+    } = query;
+    const pageSize = rawPageSize ?? limit ?? 10;
+    const skip = (page - 1) * pageSize;
 
-    const where = {
-      ...(id !== undefined && { id }),
+    const where: Prisma.UserWhereInput = {
+      ...(id !== undefined && { publicId: id }),
       ...(email !== undefined && {
         email: { contains: email, mode: "insensitive" as const },
       }),
@@ -29,9 +47,9 @@ export class UserService {
         name: { contains: name, mode: "insensitive" as const },
       }),
       ...(roleId !== undefined && {
-        roles: {
+        userRoles: {
           some: {
-            roleId,
+            role: { publicId: roleId },
             OR: [{ expiresAt: null }, { expiresAt: { gt: new Date() } }],
           },
         },
@@ -39,14 +57,14 @@ export class UserService {
       ...(status !== undefined && { status }),
     };
 
-    const [data, total] = await Promise.all([
+    const [users, total] = await Promise.all([
       this.prisma.soft.user.findMany({
         where,
         skip,
-        take: limit,
+        take: pageSize,
         orderBy: { createdAt: "desc" },
         select: {
-          id: true,
+          publicId: true,
           name: true,
           avatar: true,
           email: true,
@@ -55,7 +73,7 @@ export class UserService {
           updatedAt: true,
           _count: {
             select: {
-              UserRole_UserRole_userIdToUser: true,
+              userRoles: true,
             },
           },
         },
@@ -64,12 +82,20 @@ export class UserService {
     ]);
 
     return {
-      data,
-      meta: {
+      items: users.map((user) => ({
+        id: user.publicId,
+        name: user.name,
+        avatar: user.avatar,
+        email: user.email,
+        status: user.status,
+        createdAt: user.createdAt,
+        updatedAt: user.updatedAt,
+        roleCount: user._count.userRoles,
+      })),
+      pagination: {
         total,
         page,
-        limit,
-        totalPages: Math.ceil(total / limit),
+        pageSize,
       },
     };
   }
@@ -77,19 +103,23 @@ export class UserService {
   /**
    * 获取用户详情（带角色信息）
    */
-  async findOne(id: number) {
+  async findOne(userPublicId: string) {
     const user = await this.prisma.soft.user.findUnique({
-      where: { id },
+      where: { publicId: userPublicId },
       include: {
-        UserRole_UserRole_userIdToUser: {
+        userRoles: {
+          where: {
+            OR: [{ expiresAt: null }, { expiresAt: { gt: new Date() } }],
+          },
           include: {
-            Role: {
+            role: {
               select: {
-                id: true,
+                publicId: true,
                 code: true,
                 name: true,
                 type: true,
                 isEnabled: true,
+                deletedAt: true,
               },
             },
           },
@@ -105,25 +135,43 @@ export class UserService {
       });
     }
 
-    return user;
+    const roles: RoleItem[] = user.userRoles
+      .filter((ur) => ur.role.isEnabled && !ur.role.deletedAt)
+      .map((ur) => ({
+        id: ur.role.publicId,
+        code: ur.role.code,
+        name: ur.role.name,
+        type: ur.role.type,
+        isEnabled: ur.role.isEnabled,
+      }));
+
+    return {
+      id: user.publicId,
+      email: user.email,
+      name: user.name,
+      avatar: user.avatar,
+      status: user.status,
+      createdAt: user.createdAt,
+      updatedAt: user.updatedAt,
+      roles,
+    };
   }
 
   /**
    * 获取用户的角色列表
    */
-  async findUserRoles(userId: number) {
-    // 先验证用户存在
-    await this.findOne(userId);
+  async findUserRoles(userPublicId: string) {
+    const user = await this.getUserInternalOrThrow(userPublicId);
 
     const userRoles = await this.prisma.userRole.findMany({
       where: {
-        userId,
+        userId: user.id,
         OR: [{ expiresAt: null }, { expiresAt: { gt: new Date() } }],
       },
       include: {
-        Role: {
+        role: {
           select: {
-            id: true,
+            publicId: true,
             code: true,
             name: true,
             type: true,
@@ -131,36 +179,38 @@ export class UserService {
             deletedAt: true,
           },
         },
-        User_UserRole_grantedByToUser: {
+        grantedBy: {
           select: {
-            id: true,
+            publicId: true,
             name: true,
           },
         },
       },
     });
 
-    // 过滤掉已删除或禁用的角色
-    const data = userRoles
-      .filter((ur: typeof userRoles[number]) => ur.Role.isEnabled && !ur.Role.deletedAt)
-      .map((ur: typeof userRoles[number]) => ({
-        id: ur.id,
-        roleId: ur.Role.id,
-        roleCode: ur.Role.code,
-        roleName: ur.Role.name,
-        roleType: ur.Role.type,
+    const items = userRoles
+      .filter((ur) => ur.role.isEnabled && !ur.role.deletedAt)
+      .map((ur) => ({
+        role: {
+          id: ur.role.publicId,
+          code: ur.role.code,
+          name: ur.role.name,
+          type: ur.role.type,
+          isEnabled: ur.role.isEnabled,
+        },
         grantedAt: ur.grantedAt,
         expiresAt: ur.expiresAt,
-        grantedBy: ur.User_UserRole_grantedByToUser,
+        grantedBy: ur.grantedBy
+          ? { id: ur.grantedBy.publicId, name: ur.grantedBy.name }
+          : null,
       }));
 
     return {
-      data,
-      meta: {
-        total: data.length,
+      items,
+      pagination: {
+        total: items.length,
         page: 1,
-        limit: data.length,
-        totalPages: 1,
+        pageSize: items.length,
       },
     };
   }
@@ -168,13 +218,18 @@ export class UserService {
   /**
    * 为用户分配角色
    */
-  async assignRole(userId: number, dto: AssignRoleDto) {
-    // 验证用户存在
-    await this.findOne(userId);
+  async assignRole(userPublicId: string, dto: AssignRoleDto) {
+    const user = await this.getUserInternalOrThrow(userPublicId);
 
-    // 验证角色存在且启用
     const role = await this.prisma.soft.role.findUnique({
-      where: { id: dto.roleId },
+      where: { publicId: dto.roleId },
+      select: {
+        id: true,
+        publicId: true,
+        code: true,
+        name: true,
+        isEnabled: true,
+      },
     });
 
     if (!role) {
@@ -193,12 +248,11 @@ export class UserService {
       });
     }
 
-    // 检查是否已分配
     const existing = await this.prisma.userRole.findUnique({
       where: {
         userId_roleId: {
-          userId,
-          roleId: dto.roleId,
+          userId: user.id,
+          roleId: role.id,
         },
       },
     });
@@ -215,34 +269,28 @@ export class UserService {
 
     const userRole = await this.prisma.userRole.create({
       data: {
-        userId,
-        roleId: dto.roleId,
-        grantedBy: auditCtx?.actorUserId,
+        userId: user.id,
+        roleId: role.id,
+        grantedById: auditCtx?.actorUserId,
         expiresAt: dto.expiresAt ? new Date(dto.expiresAt) : undefined,
       },
-      include: {
-        Role: {
-          select: {
-            id: true,
-            code: true,
-            name: true,
-          },
-        },
+      select: {
+        grantedAt: true,
+        expiresAt: true,
       },
     });
 
     this.logger.debug(
-      { userId, roleId: dto.roleId, roleCode: role.code },
+      { userPublicId, rolePublicId: role.publicId, roleCode: role.code },
       "[user] Role assigned",
     );
 
     return {
       message: "Role assigned successfully",
       userRole: {
-        id: userRole.id,
-        roleId: userRole.roleId,
-        roleCode: userRole.Role.code,
-        roleName: userRole.Role.name,
+        roleId: role.publicId,
+        roleCode: role.code,
+        roleName: role.name,
         grantedAt: userRole.grantedAt,
         expiresAt: userRole.expiresAt,
       },
@@ -252,21 +300,20 @@ export class UserService {
   /**
    * 批量为用户分配角色（替换模式）
    */
-  async assignRoles(userId: number, roleIds: number[]) {
-    // 验证用户存在
-    await this.findOne(userId);
+  async assignRoles(userPublicId: string, rolePublicIds: string[]) {
+    const user = await this.getUserInternalOrThrow(userPublicId);
 
-    // 验证所有角色存在且启用
     const roles = await this.prisma.soft.role.findMany({
       where: {
-        id: { in: roleIds },
+        publicId: { in: rolePublicIds },
         isEnabled: true,
       },
+      select: { id: true, publicId: true },
     });
 
-    if (roles.length !== roleIds.length) {
-      const foundIds = new Set(roles.map((r: typeof roles[number]) => r.id));
-      const missingIds = roleIds.filter((id: number) => !foundIds.has(id));
+    if (roles.length !== rolePublicIds.length) {
+      const found = new Set(roles.map((r) => r.publicId));
+      const missingIds = rolePublicIds.filter((id) => !found.has(id));
       throw new BusinessException({
         code: ApiErrorCode.ROLE_NOT_FOUND,
         message: `Roles not found or disabled: ${missingIds.join(", ")}`,
@@ -277,20 +324,19 @@ export class UserService {
     const auditCtx = getAuditContext();
     const grantedBy = auditCtx?.actorUserId;
 
-    // 事务：删除旧角色 + 添加新角色
     await this.prisma.$transaction(async (tx: Prisma.TransactionClient) => {
-      await tx.userRole.deleteMany({ where: { userId } });
+      await tx.userRole.deleteMany({ where: { userId: user.id } });
       await tx.userRole.createMany({
-        data: roleIds.map((roleId: number) => ({
-          userId,
-          roleId,
-          grantedBy,
+        data: roles.map((role) => ({
+          userId: user.id,
+          roleId: role.id,
+          grantedById: grantedBy,
         })),
       });
     });
 
     this.logger.debug(
-      { userId, roleCount: roleIds.length },
+      { userPublicId, roleCount: rolePublicIds.length },
       "[user] Roles replaced",
     );
 
@@ -300,20 +346,27 @@ export class UserService {
   /**
    * 移除用户的角色
    */
-  async removeRole(userId: number, roleId: number) {
-    // 验证用户存在
-    await this.findOne(userId);
+  async removeRole(userPublicId: string, rolePublicId: string) {
+    const user = await this.getUserInternalOrThrow(userPublicId);
+
+    const role = await this.prisma.soft.role.findUnique({
+      where: { publicId: rolePublicId },
+      select: { id: true, code: true },
+    });
+
+    if (!role) {
+      throw new BusinessException({
+        code: ApiErrorCode.ROLE_NOT_FOUND,
+        message: "Role not found",
+        status: HttpStatus.NOT_FOUND,
+      });
+    }
 
     const userRole = await this.prisma.userRole.findUnique({
       where: {
         userId_roleId: {
-          userId,
-          roleId,
-        },
-      },
-      include: {
-        Role: {
-          select: { code: true },
+          userId: user.id,
+          roleId: role.id,
         },
       },
     });
@@ -329,17 +382,36 @@ export class UserService {
     await this.prisma.userRole.delete({
       where: {
         userId_roleId: {
-          userId,
-          roleId,
+          userId: user.id,
+          roleId: role.id,
         },
       },
     });
 
     this.logger.debug(
-      { userId, roleId, roleCode: userRole.Role.code },
+      { userPublicId, rolePublicId, roleCode: role.code },
       "[user] Role removed",
     );
 
     return { message: "Role removed successfully" };
+  }
+
+  private async getUserInternalOrThrow(
+    publicId: string,
+  ): Promise<{ id: number }> {
+    const user = await this.prisma.soft.user.findUnique({
+      where: { publicId },
+      select: { id: true },
+    });
+
+    if (!user) {
+      throw new BusinessException({
+        code: ApiErrorCode.USER_NOT_FOUND,
+        message: "User not found",
+        status: HttpStatus.NOT_FOUND,
+      });
+    }
+
+    return user;
   }
 }

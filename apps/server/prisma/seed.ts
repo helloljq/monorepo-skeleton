@@ -274,7 +274,8 @@ async function main() {
 
   // 4. 确保默认超级管理员存在 (Upsert)
   console.log("👤 检查/创建默认超级管理员...");
-  const email = process.env.DEFAULT_ADMIN_EMAIL || "admin@{{DOMAIN}}";
+  const email =
+    process.env.DEFAULT_ADMIN_EMAIL || "admin@monorepo-skeleton.test";
   const password = process.env.DEFAULT_ADMIN_PASSWORD || "password";
   // 统一转换为小写，确保与登录验证逻辑一致
   const emailLower = email.toLowerCase();
@@ -285,7 +286,9 @@ async function main() {
 
   if (superAdminRole) {
     // 1. 查找或创建用户 (Upsert logic via findFirst + update/create)
-    const existingUser = await prisma.user.findFirst({ where: { email: emailLower } });
+    const existingUser = await prisma.user.findFirst({
+      where: { email: emailLower },
+    });
     let userId: number;
 
     if (existingUser) {

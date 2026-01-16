@@ -43,6 +43,8 @@ async function bootstrap() {
       "Authorization",
       "Idempotency-Key",
       "X-Request-ID",
+      "X-Trace-Id",
+      "X-CSRF-Token",
     ],
     maxAge: 3600,
   });

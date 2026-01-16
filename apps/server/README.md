@@ -43,6 +43,7 @@ pnpm prisma:seed
 ### 首次初始化说明
 
 种子数据会创建：
+
 - **角色**: SUPER_ADMIN（超管）、ADMIN（管理员）、USER（普通用户）
 - **权限**: 用户管理、角色管理、权限管理、审计日志、字典配置等 16 个权限
 - **角色-权限关联**: ADMIN 角色关联所有权限，SUPER_ADMIN 跳过权限检查
@@ -71,7 +72,7 @@ src/
 
 ## 端点
 
-> 本地开发需要先配置 hosts + Caddy，详见 [本地 Hosts 配置指南](../../docs/development/local-hosts-setup.md)
+> 本地开发需要先配置 hosts + Caddy，详见 [本地 Hosts 配置指南](../../docs/runbooks/development/local-hosts-setup.md)
 
 - Swagger: https://api-dev.{{DOMAIN}}/api
 - Health: https://api-dev.{{DOMAIN}}/health

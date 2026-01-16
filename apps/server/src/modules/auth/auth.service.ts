@@ -58,11 +58,33 @@ export class AuthService {
     );
 
     return this.generateTokens(
-      result.user.id,
+      result.internalUserId,
       result.user.email,
       result.user.roles,
       dto.deviceId,
     );
+  }
+
+  /**
+   * Web 登录（默认 Cookie 模式）：返回用户信息，Token 仅通过 HttpOnly Cookie 传输
+   */
+  async loginWeb(dto: LoginDto) {
+    const result = await this.identityService.validateEmailPassword(
+      dto.email,
+      dto.password,
+    );
+
+    const tokens = await this.generateTokens(
+      result.internalUserId,
+      result.user.email,
+      result.user.roles,
+      dto.deviceId,
+    );
+
+    return {
+      user: result.user,
+      tokens,
+    };
   }
 
   /**
@@ -80,108 +102,14 @@ export class AuthService {
     // 1. 验证验证码
     await this.smsService.verifyCode(dto.phone, dto.code);
 
-    // 2. 查找或创建用户
-    const identity = await this.prisma.userIdentity.findUnique({
-      where: {
-        provider_providerId: {
-          provider: "PHONE",
-          providerId: dto.phone,
-        },
-      },
-      include: {
-        User: {
-          include: {
-            UserRole_UserRole_userIdToUser: {
-              where: {
-                OR: [{ expiresAt: null }, { expiresAt: { gt: new Date() } }],
-              },
-              include: {
-                Role: {
-                  select: { code: true, isEnabled: true, deletedAt: true },
-                },
-              },
-            },
-          },
-        },
-      },
-    });
-
-    let userId: number;
-    let email: string | null;
-    let roles: string[];
-
-    if (identity) {
-      // 检查用户状态
-      if (identity.User.status === "DISABLED") {
-        throw new BusinessException({
-          code: ApiErrorCode.AUTH_USER_DISABLED,
-          message: "User account is disabled",
-          status: HttpStatus.FORBIDDEN,
-        });
-      }
-
-      userId = identity.User.id;
-      email = identity.User.email;
-      roles = identity.User.UserRole_UserRole_userIdToUser.filter(
-        (ur) => ur.Role.isEnabled && !ur.Role.deletedAt,
-      ).map((ur) => ur.Role.code);
-    } else {
-      // 自动注册新用户
-      const newUser = await this.createPhoneUser(dto.phone);
-      userId = newUser.id;
-      email = newUser.email;
-      roles = newUser.roles;
-    }
-
-    return this.generateTokens(userId, email, roles, dto.deviceId);
-  }
-
-  /**
-   * 创建手机号用户（自动注册）
-   */
-  private async createPhoneUser(
-    phone: string,
-  ): Promise<{ id: number; email: string | null; roles: string[] }> {
-    // 查找默认 USER 角色
-    const userRole = await this.prisma.role.findUnique({
-      where: { code: "USER" },
-    });
-
-    const result = await this.prisma.$transaction(async (tx) => {
-      // 1. 创建用户 (email/password 为兼容字段，手机用户使用占位值)
-      const user = await tx.user.create({
-        data: {
-          email: `phone_${phone}@placeholder.local`,
-          password: "", // 手机用户无密码
-          status: "ACTIVE",
-          ...(userRole && {
-            UserRole_UserRole_userIdToUser: {
-              create: {
-                roleId: userRole.id,
-              },
-            },
-          }),
-        },
-      });
-
-      // 2. 创建手机号身份
-      await tx.userIdentity.create({
-        data: {
-          userId: user.id,
-          provider: "PHONE",
-          providerId: phone,
-          verified: true,
-        },
-      });
-
-      return user;
-    });
-
-    return {
-      id: result.id,
-      email: result.email,
-      roles: userRole ? ["USER"] : [],
-    };
+    // 2. 查找或创建用户（统一走 IdentityService，保证 Public ID/角色关系一致）
+    const result = await this.identityService.validatePhoneCode(dto.phone);
+    return this.generateTokens(
+      result.internalUserId,
+      result.user.email,
+      result.user.roles,
+      dto.deviceId,
+    );
   }
 
   async refresh(dto: RefreshTokenDto) {
@@ -195,12 +123,12 @@ export class AuthService {
     const user = await this.prisma.soft.user.findUnique({
       where: { id: payload.sub },
       include: {
-        UserRole_UserRole_userIdToUser: {
+        userRoles: {
           where: {
             OR: [{ expiresAt: null }, { expiresAt: { gt: new Date() } }],
           },
           include: {
-            Role: {
+            role: {
               select: { code: true, isEnabled: true, deletedAt: true },
             },
           },
@@ -226,11 +154,11 @@ export class AuthService {
     }
 
     // 提取有效的角色代码
-    const roles = user.UserRole_UserRole_userIdToUser.filter(
-      (ur) => ur.Role.isEnabled && !ur.Role.deletedAt,
-    ).map((ur) => ur.Role.code);
+    const roles = user.userRoles
+      .filter((ur) => ur.role.isEnabled && !ur.role.deletedAt)
+      .map((ur) => ur.role.code);
 
-    return this.generateTokens(payload.sub, payload.email, roles, dto.deviceId);
+    return this.generateTokens(payload.sub, user.email, roles, dto.deviceId);
   }
 
   async logout(userId: number, deviceId: string) {
@@ -320,7 +248,12 @@ export class AuthService {
     roles: string[],
     deviceId: string,
   ) {
-    const payload: JwtPayload = { sub: userId, email: email ?? "", roles };
+    // JwtPayloadSchema enforces a valid email; use a safe placeholder if missing.
+    const normalizedEmail =
+      typeof email === "string" && email.length > 0
+        ? email
+        : "unknown@placeholder.local";
+    const payload: JwtPayload = { sub: userId, email: normalizedEmail, roles };
 
     const accessTtlSeconds = parseDurationToSeconds(this.config.auth.accessTtl);
     const refreshTtlSeconds = parseDurationToSeconds(

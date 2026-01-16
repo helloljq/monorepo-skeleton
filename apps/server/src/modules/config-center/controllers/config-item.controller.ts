@@ -102,7 +102,7 @@ export class ConfigItemController {
   })
   @ApiQuery({ name: "page", required: false, description: "页码（从1开始）" })
   @ApiQuery({
-    name: "limit",
+    name: "pageSize",
     required: false,
     description: "每页数量（默认1-100，此接口允许最大1000）",
   })
@@ -213,7 +213,7 @@ export class ConfigItemController {
   @ApiParam({ name: "key", description: "配置项 key" })
   @ApiQuery({ name: "page", required: false, description: "页码（从1开始）" })
   @ApiQuery({
-    name: "limit",
+    name: "pageSize",
     required: false,
     description: "每页数量（1-100）",
   })
@@ -222,13 +222,14 @@ export class ConfigItemController {
     @Param("namespace") namespace: string,
     @Param("key") key: string,
     @Query("page") page?: number,
+    @Query("pageSize") pageSize?: number,
     @Query("limit") limit?: number,
   ) {
     return this.configItemService.getHistory(
       namespace,
       key,
       page ?? 1,
-      limit ?? 10,
+      pageSize ?? limit ?? 10,
     );
   }
 

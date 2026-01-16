@@ -1,7 +1,7 @@
 /* eslint-disable no-console */
 /**
  * 重置管理员密码脚本（CommonJS 版本，可直接在容器中运行）
- * 
+ *
  * 使用方法：
  *   docker exec xiaoyue-server-staging node scripts/reset-admin-password.js
  */
@@ -14,7 +14,8 @@ const prisma = new PrismaClient();
 async function main() {
   console.log("🔧 重置管理员密码...\n");
 
-  const email = process.env.DEFAULT_ADMIN_EMAIL || "admin@{{DOMAIN}}";
+  const email =
+    process.env.DEFAULT_ADMIN_EMAIL || "admin@monorepo-skeleton.test";
   const password = process.env.DEFAULT_ADMIN_PASSWORD || "password";
   const emailLower = email.toLowerCase();
 
@@ -91,4 +92,3 @@ async function main() {
 }
 
 main();
-

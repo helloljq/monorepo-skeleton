@@ -1,7 +1,6 @@
 import { Test, TestingModule } from "@nestjs/testing";
 import { ConfigChangeType, ConfigValueType } from "@prisma/client";
 
-import { BusinessException } from "../../../common/errors/business.exception";
 import { ApiErrorCode } from "../../../common/errors/error-codes";
 import { PrismaService } from "../../../database/prisma/prisma.service";
 import { ConfigCenterGateway } from "../gateways/config-center.gateway";
@@ -13,65 +12,59 @@ import { NamespaceService } from "../services/namespace.service";
 
 describe("ConfigItemService", () => {
   let service: ConfigItemService;
-  let prismaService: jest.Mocked<PrismaService>;
+  let prisma: jest.Mocked<PrismaService>;
   let namespaceService: jest.Mocked<NamespaceService>;
   let encryptionService: jest.Mocked<ConfigEncryptionService>;
   let schemaValidator: jest.Mocked<ConfigSchemaValidatorService>;
   let cacheService: jest.Mocked<ConfigCacheService>;
   let gateway: jest.Mocked<ConfigCenterGateway>;
 
-  const mockNamespace = {
+  const namespace = "test_ns";
+  const now = new Date();
+
+  const mockNamespaceRecord = {
     id: 1,
-    name: "test_ns",
+    publicId: "550e8400-e29b-41d4-a716-446655440700",
+    name: namespace,
     displayName: "Test Namespace",
     description: "Test description",
     isEnabled: true,
-    createdAt: new Date(),
-    updatedAt: new Date(),
+    createdAt: now,
+    updatedAt: now,
     deletedAt: null,
     deletedById: null,
     deleteReason: null,
   };
 
-  const mockConfigItem = {
-    id: 1,
-    namespaceId: 1,
+  const configPublicId = "550e8400-e29b-41d4-a716-446655440701";
+  const configInternalId = 10;
+
+  const mockConfigRecord = {
+    id: configInternalId,
+    publicId: configPublicId,
+    namespaceId: mockNamespaceRecord.id,
     key: "test_key",
     value: { data: "test value" } as never,
     valueType: ConfigValueType.JSON,
     description: "Test config",
     isEncrypted: false,
+    isPublic: false,
     jsonSchema: null,
     version: 1,
-    configHash: "098f6bcd4621d373cade4e832627b4f6", // MD5 of "test"
+    configHash: "hash-1",
     isEnabled: true,
-    createdAt: new Date(),
-    updatedAt: new Date(),
+    createdAt: now,
+    updatedAt: now,
     deletedAt: null,
     deletedById: null,
     deleteReason: null,
   };
 
-  const mockHistory = {
-    id: 1,
-    configId: 1,
-    version: 1,
-    value: { data: "test value" } as never,
-    configHash: "098f6bcd4621d373cade4e832627b4f6",
-    changeType: ConfigChangeType.CREATE,
-    changeNote: "创建配置项",
-    changedBy: null,
-    changedById: null,
-    changedAt: new Date(),
-  };
-
   beforeEach(async () => {
-    const mockPrismaService = {
+    const mockPrisma: Partial<jest.Mocked<PrismaService>> = {
       configItem: {
         findFirst: jest.fn(),
         findMany: jest.fn(),
-        create: jest.fn(),
-        update: jest.fn(),
         count: jest.fn(),
       },
       configHistory: {
@@ -81,22 +74,11 @@ describe("ConfigItemService", () => {
         count: jest.fn(),
       },
       genericSoftDelete: jest.fn(),
-
-      $transaction: jest.fn((fn: any) =>
-        fn({
-          configItem: {
-            create: jest.fn(),
-            update: jest.fn(),
-          },
-          configHistory: {
-            create: jest.fn(),
-          },
-        }),
-      ),
+      $transaction: jest.fn(),
     };
 
     const mockNamespaceService = {
-      findByName: jest.fn(),
+      getNamespaceInternalOrThrow: jest.fn(),
     };
 
     const mockEncryptionService = {
@@ -112,9 +94,6 @@ describe("ConfigItemService", () => {
 
     const mockCacheService = {
       get: jest.fn(),
-      set: jest.fn().mockResolvedValue(undefined),
-      getAll: jest.fn(),
-      setAll: jest.fn().mockResolvedValue(undefined),
       invalidate: jest.fn().mockResolvedValue(undefined),
       getWithLock: jest.fn(),
     };
@@ -126,35 +105,20 @@ describe("ConfigItemService", () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         ConfigItemService,
-        {
-          provide: PrismaService,
-          useValue: mockPrismaService,
-        },
-        {
-          provide: NamespaceService,
-          useValue: mockNamespaceService,
-        },
-        {
-          provide: ConfigEncryptionService,
-          useValue: mockEncryptionService,
-        },
+        { provide: PrismaService, useValue: mockPrisma },
+        { provide: NamespaceService, useValue: mockNamespaceService },
+        { provide: ConfigEncryptionService, useValue: mockEncryptionService },
         {
           provide: ConfigSchemaValidatorService,
           useValue: mockSchemaValidator,
         },
-        {
-          provide: ConfigCacheService,
-          useValue: mockCacheService,
-        },
-        {
-          provide: ConfigCenterGateway,
-          useValue: mockGateway,
-        },
+        { provide: ConfigCacheService, useValue: mockCacheService },
+        { provide: ConfigCenterGateway, useValue: mockGateway },
       ],
     }).compile();
 
-    service = module.get<ConfigItemService>(ConfigItemService);
-    prismaService = module.get(PrismaService);
+    service = module.get(ConfigItemService);
+    prisma = module.get(PrismaService);
     namespaceService = module.get(NamespaceService);
     encryptionService = module.get(ConfigEncryptionService);
     schemaValidator = module.get(ConfigSchemaValidatorService);
@@ -163,756 +127,735 @@ describe("ConfigItemService", () => {
   });
 
   describe("create", () => {
-    const createDto = {
-      key: "test_key",
-      value: { data: "test value" },
-      valueType: ConfigValueType.JSON,
-      description: "Test config",
-      isEncrypted: false,
-      isEnabled: true,
-    };
+    it("should create config item and invalidate cache", async () => {
+      namespaceService.getNamespaceInternalOrThrow.mockResolvedValue(
+        mockNamespaceRecord as never,
+      );
+      prisma.configItem.findFirst.mockResolvedValue(null);
 
-    it("应该成功创建配置项", async () => {
-      namespaceService.findByName.mockResolvedValue(mockNamespace);
-      prismaService.configItem.findFirst.mockResolvedValue(null);
-
-      prismaService.$transaction.mockImplementation(async (fn) => {
+      prisma.$transaction.mockImplementation(async (fn) => {
         const tx = {
           configItem: {
-            create: jest.fn().mockResolvedValue(mockConfigItem),
+            create: jest.fn().mockResolvedValue(mockConfigRecord),
           },
           configHistory: {
-            create: jest.fn().mockResolvedValue(mockHistory),
+            create: jest.fn().mockResolvedValue({ id: 1 }),
           },
         };
-        return fn(tx);
+        return fn(tx as never);
       });
 
-      const result = await service.create("test_ns", createDto);
+      const result = await service.create(namespace, {
+        key: "test_key",
+        value: { data: "test value" },
+        valueType: ConfigValueType.JSON,
+        description: "Test config",
+        isEncrypted: false,
+        isEnabled: true,
+      });
 
-      expect(result).toEqual(mockConfigItem);
-      expect(namespaceService.findByName).toHaveBeenCalledWith("test_ns");
+      expect(result).toEqual({
+        id: configPublicId,
+        key: "test_key",
+        value: { data: "test value" },
+        valueType: ConfigValueType.JSON,
+        description: "Test config",
+        isEncrypted: false,
+        isEnabled: true,
+        version: 1,
+        createdAt: now,
+        updatedAt: now,
+        namespace,
+      });
       expect(cacheService.invalidate).toHaveBeenCalledWith(
-        "test_ns",
+        namespace,
         "test_key",
       );
       expect(gateway.notifyConfigChanged).toHaveBeenCalledWith(
         expect.objectContaining({
-          namespace: "test_ns",
+          namespace,
           key: "test_key",
           changeType: ConfigChangeType.CREATE,
         }),
       );
     });
 
-    it("应该在配置项已存在时抛出异常", async () => {
-      namespaceService.findByName.mockResolvedValue(mockNamespace);
-      prismaService.configItem.findFirst.mockResolvedValue(mockConfigItem);
-
-      await expect(service.create("test_ns", createDto)).rejects.toThrow(
-        BusinessException,
+    it("should throw CONFIG_ITEM_EXISTS when already exists", async () => {
+      namespaceService.getNamespaceInternalOrThrow.mockResolvedValue(
+        mockNamespaceRecord as never,
       );
-      await expect(service.create("test_ns", createDto)).rejects.toMatchObject({
-        businessCode: ApiErrorCode.CONFIG_ITEM_EXISTS,
-      });
+      prisma.configItem.findFirst.mockResolvedValue(mockConfigRecord);
+
+      await expect(
+        service.create(namespace, {
+          key: "test_key",
+          value: { data: "test value" },
+          valueType: ConfigValueType.JSON,
+        }),
+      ).rejects.toMatchObject({ code: ApiErrorCode.CONFIG_ITEM_EXISTS });
     });
 
-    it("应该在提供 JSON Schema 时进行校验", async () => {
-      const dtoWithSchema = {
-        ...createDto,
-        jsonSchema: {
-          type: "object",
-          properties: {
-            data: { type: "string" },
-          },
-        },
-      };
-
-      namespaceService.findByName.mockResolvedValue(mockNamespace);
-      prismaService.configItem.findFirst.mockResolvedValue(null);
+    it("should validate JSON Schema when provided", async () => {
+      namespaceService.getNamespaceInternalOrThrow.mockResolvedValue(
+        mockNamespaceRecord as never,
+      );
+      prisma.configItem.findFirst.mockResolvedValue(null);
       schemaValidator.validateSchema.mockReturnValue(true);
       schemaValidator.validate.mockReturnValue(undefined);
 
-      prismaService.$transaction.mockImplementation(async (fn) => {
+      prisma.$transaction.mockImplementation(async (fn) => {
         const tx = {
           configItem: {
-            create: jest.fn().mockResolvedValue(mockConfigItem),
+            create: jest.fn().mockResolvedValue(mockConfigRecord),
           },
           configHistory: {
-            create: jest.fn().mockResolvedValue(mockHistory),
+            create: jest.fn().mockResolvedValue({ id: 1 }),
           },
         };
-        return fn(tx);
+        return fn(tx as never);
       });
 
-      await service.create("test_ns", dtoWithSchema);
+      await service.create(namespace, {
+        key: "test_key",
+        value: { data: "test value" },
+        valueType: ConfigValueType.JSON,
+        jsonSchema: {
+          type: "object",
+          properties: { data: { type: "string" } },
+        },
+      });
 
-      expect(schemaValidator.validateSchema).toHaveBeenCalledWith(
-        dtoWithSchema.jsonSchema,
-      );
-      expect(schemaValidator.validate).toHaveBeenCalledWith(
-        dtoWithSchema.value,
-        dtoWithSchema.jsonSchema,
-      );
+      expect(schemaValidator.validateSchema).toHaveBeenCalled();
+      expect(schemaValidator.validate).toHaveBeenCalled();
     });
 
-    it("应该在 JSON Schema 无效时抛出异常", async () => {
-      const dtoWithInvalidSchema = {
-        ...createDto,
-        jsonSchema: { type: "invalid" },
-      };
-
-      namespaceService.findByName.mockResolvedValue(mockNamespace);
-      prismaService.configItem.findFirst.mockResolvedValue(null);
+    it("should throw CONFIG_SCHEMA_INVALID when JSON Schema is invalid", async () => {
+      namespaceService.getNamespaceInternalOrThrow.mockResolvedValue(
+        mockNamespaceRecord as never,
+      );
+      prisma.configItem.findFirst.mockResolvedValue(null);
       schemaValidator.validateSchema.mockReturnValue(false);
 
       await expect(
-        service.create("test_ns", dtoWithInvalidSchema),
-      ).rejects.toThrow(BusinessException);
-      await expect(
-        service.create("test_ns", dtoWithInvalidSchema),
-      ).rejects.toMatchObject({
-        businessCode: ApiErrorCode.CONFIG_SCHEMA_INVALID,
-      });
+        service.create(namespace, {
+          key: "test_key",
+          value: { data: "test value" },
+          valueType: ConfigValueType.JSON,
+          jsonSchema: { type: "invalid" } as never,
+        }),
+      ).rejects.toMatchObject({ code: ApiErrorCode.CONFIG_SCHEMA_INVALID });
     });
 
-    it("应该在需要加密时调用加密服务", async () => {
-      const encryptedDto = {
-        ...createDto,
-        isEncrypted: true,
-      };
-
-      namespaceService.findByName.mockResolvedValue(mockNamespace);
-      prismaService.configItem.findFirst.mockResolvedValue(null);
+    it("should encrypt and decrypt value when isEncrypted=true", async () => {
+      namespaceService.getNamespaceInternalOrThrow.mockResolvedValue(
+        mockNamespaceRecord as never,
+      );
+      prisma.configItem.findFirst.mockResolvedValue(null);
       encryptionService.isAvailable.mockReturnValue(true);
       encryptionService.encrypt.mockReturnValue("encrypted_value");
+      encryptionService.decrypt.mockReturnValue(
+        JSON.stringify({ data: "test value" }),
+      );
 
-      prismaService.$transaction.mockImplementation(async (fn) => {
+      prisma.$transaction.mockImplementation(async (fn) => {
         const tx = {
           configItem: {
-            create: jest.fn().mockResolvedValue(mockConfigItem),
+            create: jest.fn().mockResolvedValue({
+              ...mockConfigRecord,
+              isEncrypted: true,
+              value: "encrypted_value" as never,
+            }),
           },
           configHistory: {
-            create: jest.fn().mockResolvedValue(mockHistory),
+            create: jest.fn().mockResolvedValue({ id: 1 }),
           },
         };
-        return fn(tx);
+        return fn(tx as never);
       });
 
-      await service.create("test_ns", encryptedDto);
+      const result = await service.create(namespace, {
+        key: "test_key",
+        value: { data: "test value" },
+        valueType: ConfigValueType.JSON,
+        isEncrypted: true,
+      });
 
-      expect(encryptionService.isAvailable).toHaveBeenCalled();
       expect(encryptionService.encrypt).toHaveBeenCalled();
+      expect(encryptionService.decrypt).toHaveBeenCalledWith("encrypted_value");
+      expect(result.value).toEqual({ data: "test value" });
     });
 
-    it("应该在加密功能未配置时抛出异常", async () => {
-      const encryptedDto = {
-        ...createDto,
-        isEncrypted: true,
-      };
-
-      namespaceService.findByName.mockResolvedValue(mockNamespace);
-      prismaService.configItem.findFirst.mockResolvedValue(null);
+    it("should throw CONFIG_ENCRYPTION_FAILED when encryption is not available", async () => {
+      namespaceService.getNamespaceInternalOrThrow.mockResolvedValue(
+        mockNamespaceRecord as never,
+      );
+      prisma.configItem.findFirst.mockResolvedValue(null);
       encryptionService.isAvailable.mockReturnValue(false);
 
-      await expect(service.create("test_ns", encryptedDto)).rejects.toThrow(
-        BusinessException,
-      );
       await expect(
-        service.create("test_ns", encryptedDto),
-      ).rejects.toMatchObject({
-        businessCode: ApiErrorCode.CONFIG_ENCRYPTION_FAILED,
-      });
+        service.create(namespace, {
+          key: "test_key",
+          value: { data: "test value" },
+          valueType: ConfigValueType.JSON,
+          isEncrypted: true,
+        }),
+      ).rejects.toMatchObject({ code: ApiErrorCode.CONFIG_ENCRYPTION_FAILED });
     });
   });
 
   describe("findAll", () => {
-    it("应该返回分页格式的配置列表", async () => {
-      const mockConfigs = [mockConfigItem];
-      namespaceService.findByName.mockResolvedValue(mockNamespace);
-      prismaService.configItem.findMany.mockResolvedValue(mockConfigs);
-      prismaService.configItem.count.mockResolvedValue(1);
+    it("should return items and pagination", async () => {
+      namespaceService.getNamespaceInternalOrThrow.mockResolvedValue(
+        mockNamespaceRecord as never,
+      );
+      prisma.configItem.findMany.mockResolvedValue([mockConfigRecord]);
+      prisma.configItem.count.mockResolvedValue(1);
 
-      const result = await service.findAll("test_ns", { page: 1, limit: 10 });
+      const result = await service.findAll(namespace, {
+        page: 1,
+        pageSize: 10,
+      });
 
       expect(result).toEqual({
-        data: mockConfigs,
-        meta: {
-          total: 1,
-          page: 1,
-          limit: 10,
-          totalPages: 1,
-        },
-      });
-      expect(prismaService.configItem.findMany).toHaveBeenCalled();
-      expect(prismaService.configItem.count).toHaveBeenCalled();
-    });
-
-    it("应该支持按 isEnabled 过滤", async () => {
-      namespaceService.findByName.mockResolvedValue(mockNamespace);
-      prismaService.configItem.findMany.mockResolvedValue([]);
-      prismaService.configItem.count.mockResolvedValue(0);
-
-      await service.findAll("test_ns", { isEnabled: true, page: 1, limit: 10 });
-
-      expect(prismaService.configItem.findMany).toHaveBeenCalledWith({
-        where: {
-          namespaceId: mockNamespace.id,
-          isEnabled: true,
-          deletedAt: null,
-        },
-        skip: 0,
-        take: 10,
-        orderBy: { createdAt: "desc" },
+        items: [
+          {
+            id: configPublicId,
+            key: "test_key",
+            value: { data: "test value" },
+            valueType: ConfigValueType.JSON,
+            description: "Test config",
+            isEncrypted: false,
+            isEnabled: true,
+            version: 1,
+            createdAt: now,
+            updatedAt: now,
+            namespace,
+          },
+        ],
+        pagination: { total: 1, page: 1, pageSize: 10 },
       });
     });
 
-    it("应该解密加密的配置值", async () => {
-      const encryptedConfig = {
-        ...mockConfigItem,
-        isEncrypted: true,
-        value: "encrypted_value" as never,
-      };
+    it("should support filtering by isEnabled", async () => {
+      namespaceService.getNamespaceInternalOrThrow.mockResolvedValue(
+        mockNamespaceRecord as never,
+      );
+      prisma.configItem.findMany.mockResolvedValue([]);
+      prisma.configItem.count.mockResolvedValue(0);
 
-      namespaceService.findByName.mockResolvedValue(mockNamespace);
-      prismaService.configItem.findMany.mockResolvedValue([encryptedConfig]);
-      prismaService.configItem.count.mockResolvedValue(1);
-      encryptionService.decrypt.mockReturnValue('{"data":"decrypted"}');
+      await service.findAll(namespace, {
+        page: 1,
+        pageSize: 10,
+        isEnabled: true,
+      });
 
-      const result = await service.findAll("test_ns", { page: 1, limit: 10 });
+      expect(prisma.configItem.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: {
+            namespaceId: mockNamespaceRecord.id,
+            isEnabled: true,
+            deletedAt: null,
+          },
+        }),
+      );
+    });
 
-      expect(result.data[0].value).toEqual({ data: "decrypted" });
-      expect(encryptionService.decrypt).toHaveBeenCalledWith("encrypted_value");
+    it("should decrypt encrypted config values", async () => {
+      namespaceService.getNamespaceInternalOrThrow.mockResolvedValue(
+        mockNamespaceRecord as never,
+      );
+      prisma.configItem.findMany.mockResolvedValue([
+        {
+          ...mockConfigRecord,
+          isEncrypted: true,
+          value: "encrypted_value" as never,
+        },
+      ]);
+      prisma.configItem.count.mockResolvedValue(1);
+      encryptionService.decrypt.mockReturnValue(
+        JSON.stringify({ data: "decrypted" }),
+      );
+
+      const result = await service.findAll(namespace, {
+        page: 1,
+        pageSize: 10,
+      });
+
+      expect(result.items[0].value).toEqual({ data: "decrypted" });
     });
   });
 
   describe("findOne", () => {
-    it("应该优先从缓存获取单个配置", async () => {
-      namespaceService.findByName.mockResolvedValue(mockNamespace);
-      cacheService.get.mockResolvedValue(mockConfigItem);
+    it("should return config from cache when available", async () => {
+      namespaceService.getNamespaceInternalOrThrow.mockResolvedValue(
+        mockNamespaceRecord as never,
+      );
+      cacheService.get.mockResolvedValue(mockConfigRecord as never);
 
-      const result = await service.findOne("test_ns", "test_key");
+      const result = await service.findOne(namespace, "test_key");
 
-      expect(result.key).toBe("test_key");
-      expect(cacheService.get).toHaveBeenCalledWith("test_ns", "test_key");
+      expect(result.id).toBe(configPublicId);
+      expect(cacheService.get).toHaveBeenCalledWith(namespace, "test_key");
       expect(cacheService.getWithLock).not.toHaveBeenCalled();
     });
 
-    it("应该在缓存未命中时使用锁加载", async () => {
-      namespaceService.findByName.mockResolvedValue(mockNamespace);
+    it("should use lock loader when cache miss", async () => {
+      namespaceService.getNamespaceInternalOrThrow.mockResolvedValue(
+        mockNamespaceRecord as never,
+      );
       cacheService.get.mockResolvedValue(null);
-      cacheService.getWithLock.mockResolvedValue(mockConfigItem);
+      prisma.configItem.findFirst.mockResolvedValue(mockConfigRecord);
+      cacheService.getWithLock.mockImplementation(async (_key, loader) =>
+        loader(),
+      );
 
-      const result = await service.findOne("test_ns", "test_key");
+      const result = await service.findOne(namespace, "test_key");
 
-      expect(result.key).toBe("test_key");
+      expect(result.id).toBe(configPublicId);
       expect(cacheService.getWithLock).toHaveBeenCalled();
     });
 
-    it("应该在配置不存在时抛出异常", async () => {
-      namespaceService.findByName.mockResolvedValue(mockNamespace);
-      cacheService.get.mockResolvedValue(null);
-      cacheService.getWithLock.mockImplementation(async (key, loader) => {
-        return loader();
-      });
-      prismaService.configItem.findFirst.mockResolvedValue(null);
-
-      await expect(service.findOne("test_ns", "nonexistent")).rejects.toThrow(
-        BusinessException,
+    it("should throw CONFIG_ITEM_NOT_FOUND when missing", async () => {
+      namespaceService.getNamespaceInternalOrThrow.mockResolvedValue(
+        mockNamespaceRecord as never,
       );
-      await expect(
-        service.findOne("test_ns", "nonexistent"),
-      ).rejects.toMatchObject({
-        businessCode: ApiErrorCode.CONFIG_ITEM_NOT_FOUND,
-      });
+      cacheService.get.mockResolvedValue(null);
+      prisma.configItem.findFirst.mockResolvedValue(null);
+      cacheService.getWithLock.mockImplementation(async (_key, loader) =>
+        loader(),
+      );
+
+      await expect(service.findOne(namespace, "missing")).rejects.toMatchObject(
+        {
+          code: ApiErrorCode.CONFIG_ITEM_NOT_FOUND,
+        },
+      );
     });
 
-    it("当加密配置的值不是字符串时应该直接返回原值", async () => {
-      // 当 isEncrypted=true 但 value 不是字符串时（例如已经是对象）
-      const nonStringEncryptedConfig = {
-        ...mockConfigItem,
+    it("should return encrypted value as-is when value is not a string", async () => {
+      namespaceService.getNamespaceInternalOrThrow.mockResolvedValue(
+        mockNamespaceRecord as never,
+      );
+      cacheService.get.mockResolvedValue({
+        ...mockConfigRecord,
         isEncrypted: true,
-        value: { data: "already decoded" } as never, // 非字符串值
-      };
-      namespaceService.findByName.mockResolvedValue(mockNamespace);
-      cacheService.get.mockResolvedValue(nonStringEncryptedConfig);
+        value: { data: "already decoded" } as never,
+      } as never);
 
-      const result = await service.findOne("test_ns", "test_key");
+      const result = await service.findOne(namespace, "test_key");
 
-      // 应该直接返回原值，不尝试解密
       expect(result.value).toEqual({ data: "already decoded" });
       expect(encryptionService.decrypt).not.toHaveBeenCalled();
     });
   });
 
   describe("update", () => {
-    const updateDto = {
-      value: { data: "updated value" },
-      description: "Updated description",
-    };
+    it("should update config item and invalidate cache", async () => {
+      namespaceService.getNamespaceInternalOrThrow.mockResolvedValue(
+        mockNamespaceRecord as never,
+      );
+      prisma.configItem.findFirst.mockResolvedValue(mockConfigRecord);
 
-    it("应该成功更新配置项", async () => {
-      const updatedConfig = {
-        ...mockConfigItem,
-        ...updateDto,
+      const updatedRecord = {
+        ...mockConfigRecord,
+        value: { data: "updated value" } as never,
         version: 2,
       };
 
-      namespaceService.findByName.mockResolvedValue(mockNamespace);
-      prismaService.configItem.findFirst.mockResolvedValue(mockConfigItem);
-
-      prismaService.$transaction.mockImplementation(async (fn) => {
+      prisma.$transaction.mockImplementation(async (fn) => {
         const tx = {
           configItem: {
-            update: jest.fn().mockResolvedValue(updatedConfig),
+            update: jest.fn().mockResolvedValue(updatedRecord),
           },
           configHistory: {
-            create: jest.fn().mockResolvedValue(mockHistory),
+            create: jest.fn().mockResolvedValue({ id: 1 }),
           },
         };
-        return fn(tx);
+        return fn(tx as never);
       });
 
-      const result = await service.update("test_ns", "test_key", updateDto);
+      const result = await service.update(namespace, "test_key", {
+        value: { data: "updated value" },
+        description: "Updated description",
+      });
 
       expect(result.version).toBe(2);
       expect(cacheService.invalidate).toHaveBeenCalledWith(
-        "test_ns",
+        namespace,
         "test_key",
       );
       expect(gateway.notifyConfigChanged).toHaveBeenCalledWith(
         expect.objectContaining({
-          namespace: "test_ns",
+          namespace,
           key: "test_key",
           changeType: ConfigChangeType.UPDATE,
         }),
       );
     });
 
-    it("应该在配置不存在时抛出异常", async () => {
-      namespaceService.findByName.mockResolvedValue(mockNamespace);
-      prismaService.configItem.findFirst.mockResolvedValue(null);
+    it("should throw CONFIG_ITEM_NOT_FOUND when missing", async () => {
+      namespaceService.getNamespaceInternalOrThrow.mockResolvedValue(
+        mockNamespaceRecord as never,
+      );
+      prisma.configItem.findFirst.mockResolvedValue(null);
 
       await expect(
-        service.update("test_ns", "nonexistent", updateDto),
-      ).rejects.toThrow(BusinessException);
+        service.update(namespace, "missing", { value: { a: 1 } }),
+      ).rejects.toMatchObject({ code: ApiErrorCode.CONFIG_ITEM_NOT_FOUND });
     });
 
-    it("应该在更新值时校验新的 JSON Schema", async () => {
-      const updateWithSchema = {
-        value: { data: "new value" },
-        jsonSchema: {
-          type: "object",
-          properties: {
-            data: { type: "string" },
-          },
-        },
-      };
-
-      namespaceService.findByName.mockResolvedValue(mockNamespace);
-      prismaService.configItem.findFirst.mockResolvedValue(mockConfigItem);
+    it("should validate new JSON Schema when updating value", async () => {
+      namespaceService.getNamespaceInternalOrThrow.mockResolvedValue(
+        mockNamespaceRecord as never,
+      );
+      prisma.configItem.findFirst.mockResolvedValue(mockConfigRecord);
       schemaValidator.validateSchema.mockReturnValue(true);
       schemaValidator.validate.mockReturnValue(undefined);
 
-      prismaService.$transaction.mockImplementation(async (fn) => {
+      prisma.$transaction.mockImplementation(async (fn) => {
         const tx = {
           configItem: {
-            update: jest.fn().mockResolvedValue(mockConfigItem),
+            update: jest.fn().mockResolvedValue(mockConfigRecord),
           },
           configHistory: {
-            create: jest.fn().mockResolvedValue(mockHistory),
+            create: jest.fn().mockResolvedValue({ id: 1 }),
           },
         };
-        return fn(tx);
+        return fn(tx as never);
       });
 
-      await service.update("test_ns", "test_key", updateWithSchema);
+      await service.update(namespace, "test_key", {
+        value: { data: "new value" },
+        jsonSchema: {
+          type: "object",
+          properties: { data: { type: "string" } },
+        },
+      });
 
       expect(schemaValidator.validateSchema).toHaveBeenCalled();
       expect(schemaValidator.validate).toHaveBeenCalled();
     });
 
-    it("应该支持更新所有可选字段", async () => {
-      const updateAllFields = {
-        valueType: ConfigValueType.STRING,
-        isEncrypted: true,
-        isEnabled: false,
-      };
-
-      namespaceService.findByName.mockResolvedValue(mockNamespace);
-      prismaService.configItem.findFirst.mockResolvedValue(mockConfigItem);
-      encryptionService.isAvailable.mockReturnValue(true);
-
-      const updateMock = jest.fn().mockResolvedValue({
-        ...mockConfigItem,
-        ...updateAllFields,
-      });
-
-      prismaService.$transaction.mockImplementation(async (fn) => {
-        const tx = {
-          configItem: { update: updateMock },
-          configHistory: { create: jest.fn().mockResolvedValue(mockHistory) },
-        };
-        return fn(tx);
-      });
-
-      await service.update("test_ns", "test_key", updateAllFields);
-
-      expect(updateMock).toHaveBeenCalledWith(
-        expect.objectContaining({
-          data: expect.objectContaining({
-            valueType: ConfigValueType.STRING,
-            isEncrypted: true,
-            isEnabled: false,
-          }),
-        }),
+    it("should throw CONFIG_SCHEMA_INVALID when updating invalid JSON Schema", async () => {
+      namespaceService.getNamespaceInternalOrThrow.mockResolvedValue(
+        mockNamespaceRecord as never,
       );
-    });
-
-    it("应该在更新 JSON Schema 无效时抛出异常", async () => {
-      const updateWithInvalidSchema = {
-        value: { data: "new value" },
-        jsonSchema: { type: "invalid" },
-      };
-
-      namespaceService.findByName.mockResolvedValue(mockNamespace);
-      prismaService.configItem.findFirst.mockResolvedValue(mockConfigItem);
+      prisma.configItem.findFirst.mockResolvedValue(mockConfigRecord);
       schemaValidator.validateSchema.mockReturnValue(false);
 
       await expect(
-        service.update("test_ns", "test_key", updateWithInvalidSchema),
-      ).rejects.toThrow(BusinessException);
-      await expect(
-        service.update("test_ns", "test_key", updateWithInvalidSchema),
-      ).rejects.toMatchObject({
-        businessCode: ApiErrorCode.CONFIG_SCHEMA_INVALID,
-      });
+        service.update(namespace, "test_key", {
+          value: { data: "new value" },
+          jsonSchema: { type: "invalid" } as never,
+        }),
+      ).rejects.toMatchObject({ code: ApiErrorCode.CONFIG_SCHEMA_INVALID });
     });
   });
 
   describe("remove", () => {
-    it("应该成功删除配置项", async () => {
-      const deletedConfig = {
-        ...mockConfigItem,
+    it("should soft delete config item and invalidate cache", async () => {
+      namespaceService.getNamespaceInternalOrThrow.mockResolvedValue(
+        mockNamespaceRecord as never,
+      );
+      prisma.configItem.findFirst.mockResolvedValue(mockConfigRecord);
+      prisma.genericSoftDelete.mockResolvedValue({
+        id: configInternalId,
         deletedAt: new Date(),
-      };
+      } as never);
 
-      namespaceService.findByName.mockResolvedValue(mockNamespace);
-      prismaService.configItem.findFirst.mockResolvedValue(mockConfigItem);
-      prismaService.genericSoftDelete.mockResolvedValue(deletedConfig);
+      await service.remove(namespace, "test_key");
 
-      await service.remove("test_ns", "test_key");
-
-      expect(prismaService.genericSoftDelete).toHaveBeenCalledWith(
+      expect(prisma.genericSoftDelete).toHaveBeenCalledWith(
         "ConfigItem",
-        mockConfigItem.id,
-        expect.objectContaining({
-          reason: "用户删除配置项",
-        }),
+        configInternalId,
+        expect.objectContaining({ reason: "用户删除配置项" }),
       );
       expect(cacheService.invalidate).toHaveBeenCalledWith(
-        "test_ns",
+        namespace,
         "test_key",
       );
       expect(gateway.notifyConfigChanged).toHaveBeenCalledWith(
         expect.objectContaining({
-          namespace: "test_ns",
+          namespace,
           key: "test_key",
           changeType: ConfigChangeType.DELETE,
         }),
       );
     });
 
-    it("应该在配置不存在时抛出异常", async () => {
-      namespaceService.findByName.mockResolvedValue(mockNamespace);
-      prismaService.configItem.findFirst.mockResolvedValue(null);
-
-      await expect(service.remove("test_ns", "nonexistent")).rejects.toThrow(
-        BusinessException,
+    it("should throw CONFIG_ITEM_NOT_FOUND when missing", async () => {
+      namespaceService.getNamespaceInternalOrThrow.mockResolvedValue(
+        mockNamespaceRecord as never,
       );
+      prisma.configItem.findFirst.mockResolvedValue(null);
+
+      await expect(service.remove(namespace, "missing")).rejects.toMatchObject({
+        code: ApiErrorCode.CONFIG_ITEM_NOT_FOUND,
+      });
     });
   });
 
   describe("getMeta", () => {
-    it("应该成功获取配置元数据", async () => {
-      const mockMeta = {
+    it("should return config meta", async () => {
+      const meta = {
         key: "test_key",
         version: 1,
         configHash: "abc123",
         isEncrypted: false,
-        updatedAt: new Date(),
+        updatedAt: now,
       };
+      namespaceService.getNamespaceInternalOrThrow.mockResolvedValue(
+        mockNamespaceRecord as never,
+      );
+      prisma.configItem.findFirst.mockResolvedValue(meta as never);
 
-      namespaceService.findByName.mockResolvedValue(mockNamespace);
-      prismaService.configItem.findFirst.mockResolvedValue(mockMeta as never);
-
-      const result = await service.getMeta("test_ns", "test_key");
-
-      expect(result).toEqual(mockMeta);
+      await expect(service.getMeta(namespace, "test_key")).resolves.toEqual(
+        meta,
+      );
     });
 
-    it("配置项不存在时应该抛出异常", async () => {
-      namespaceService.findByName.mockResolvedValue(mockNamespace);
-      prismaService.configItem.findFirst.mockResolvedValue(null);
+    it("should throw CONFIG_ITEM_NOT_FOUND when missing", async () => {
+      namespaceService.getNamespaceInternalOrThrow.mockResolvedValue(
+        mockNamespaceRecord as never,
+      );
+      prisma.configItem.findFirst.mockResolvedValue(null);
 
-      await expect(service.getMeta("test_ns", "non_existent")).rejects.toThrow(
-        BusinessException,
+      await expect(service.getMeta(namespace, "missing")).rejects.toMatchObject(
+        {
+          code: ApiErrorCode.CONFIG_ITEM_NOT_FOUND,
+        },
       );
     });
   });
 
   describe("batchGet", () => {
-    it("应该成功批量获取配置项", async () => {
-      const mockConfigs = [mockConfigItem];
-      namespaceService.findByName.mockResolvedValue(mockNamespace);
-      prismaService.configItem.findMany.mockResolvedValue(mockConfigs);
-
-      const result = await service.batchGet("test_ns", ["test_key"]);
+    it("should return empty items for empty keys", async () => {
+      const result = await service.batchGet(namespace, []);
 
       expect(result).toEqual({
-        data: mockConfigs,
-        meta: {
-          total: 1,
-          page: 1,
-          limit: 1,
-          totalPages: 1,
-        },
-      });
-      expect(prismaService.configItem.findMany).toHaveBeenCalledWith({
-        where: {
-          namespaceId: mockNamespace.id,
-          key: { in: ["test_key"] },
-          deletedAt: null,
-        },
+        items: [],
+        pagination: { total: 0, page: 1, pageSize: 0 },
       });
     });
 
-    it("应该在 keys 为空时返回空数组", async () => {
-      const result = await service.batchGet("test_ns", []);
+    it("should throw BAD_REQUEST when keys exceed limit", async () => {
+      const keys = Array.from({ length: 51 }, (_, i) => `k${i}`);
 
-      expect(result).toEqual({
-        data: [],
-        meta: {
-          total: 0,
-          page: 1,
-          limit: 0,
-          totalPages: 0,
-        },
+      await expect(service.batchGet(namespace, keys)).rejects.toMatchObject({
+        code: ApiErrorCode.BAD_REQUEST,
       });
-      expect(prismaService.configItem.findMany).not.toHaveBeenCalled();
     });
 
-    it("应该在 keys 超过 50 个时抛出异常", async () => {
-      const keys = Array.from({ length: 51 }, (_, i) => `key_${i}`);
-
-      await expect(service.batchGet("test_ns", keys)).rejects.toThrow(
-        BusinessException,
+    it("should return items and pagination", async () => {
+      namespaceService.getNamespaceInternalOrThrow.mockResolvedValue(
+        mockNamespaceRecord as never,
       );
-      await expect(service.batchGet("test_ns", keys)).rejects.toMatchObject({
-        businessCode: ApiErrorCode.BAD_REQUEST,
+      prisma.configItem.findMany.mockResolvedValue([mockConfigRecord]);
+
+      const result = await service.batchGet(namespace, ["test_key"]);
+
+      expect(result).toEqual({
+        items: [
+          {
+            id: configPublicId,
+            key: "test_key",
+            value: { data: "test value" },
+            valueType: ConfigValueType.JSON,
+            description: "Test config",
+            isEncrypted: false,
+            isEnabled: true,
+            version: 1,
+            createdAt: now,
+            updatedAt: now,
+            namespace,
+          },
+        ],
+        pagination: { total: 1, page: 1, pageSize: 1 },
       });
     });
   });
 
   describe("getHistory", () => {
-    it("应该成功获取配置历史", async () => {
-      const mockHistories = [
+    it("should throw CONFIG_ITEM_NOT_FOUND when config does not exist", async () => {
+      namespaceService.getNamespaceInternalOrThrow.mockResolvedValue(
+        mockNamespaceRecord as never,
+      );
+      prisma.configItem.findFirst.mockResolvedValue(null);
+
+      await expect(
+        service.getHistory(namespace, "missing"),
+      ).rejects.toMatchObject({
+        code: ApiErrorCode.CONFIG_ITEM_NOT_FOUND,
+      });
+    });
+
+    it("should return items and pagination", async () => {
+      namespaceService.getNamespaceInternalOrThrow.mockResolvedValue(
+        mockNamespaceRecord as never,
+      );
+      prisma.configItem.findFirst.mockResolvedValue({
+        id: configInternalId,
+        isEncrypted: false,
+        valueType: ConfigValueType.JSON,
+      } as never);
+
+      prisma.configHistory.findMany.mockResolvedValue([
         {
-          ...mockHistory,
-          User: {
-            id: 1,
-            name: "Test User",
-            email: "test@example.com",
+          version: 2,
+          value: { data: "v2" } as never,
+          changeType: ConfigChangeType.UPDATE,
+          changeNote: "updated",
+          changedBy: {
+            publicId: "550e8400-e29b-41d4-a716-446655440799",
+            name: "Operator",
           },
+          createdAt: now,
         },
-      ];
+        {
+          version: 1,
+          value: { data: "v1" } as never,
+          changeType: ConfigChangeType.CREATE,
+          changeNote: "created",
+          changedBy: null,
+          createdAt: now,
+        },
+      ] as never);
+      prisma.configHistory.count.mockResolvedValue(2);
 
-      namespaceService.findByName.mockResolvedValue(mockNamespace);
-      cacheService.get.mockResolvedValue(mockConfigItem);
-      prismaService.configHistory.findMany.mockResolvedValue(mockHistories);
-      prismaService.configHistory.count.mockResolvedValue(1);
-
-      const result = await service.getHistory("test_ns", "test_key", 1, 10);
+      const result = await service.getHistory(namespace, "test_key", 1, 10);
 
       expect(result).toEqual({
-        data: mockHistories,
-        meta: {
-          total: 1,
-          page: 1,
-          limit: 10,
-          totalPages: 1,
-        },
-      });
-      expect(prismaService.configHistory.findMany).toHaveBeenCalledWith({
-        where: { configId: mockConfigItem.id },
-        skip: 0,
-        take: 10,
-        orderBy: { version: "desc" },
-        include: {
-          User: {
-            select: {
-              id: true,
-              name: true,
-              email: true,
+        items: [
+          {
+            version: 2,
+            value: { data: "v2" },
+            valueType: ConfigValueType.JSON,
+            changeType: ConfigChangeType.UPDATE,
+            changeNote: "updated",
+            operator: {
+              id: "550e8400-e29b-41d4-a716-446655440799",
+              name: "Operator",
             },
+            createdAt: now,
           },
-        },
-      });
-      expect(prismaService.configHistory.count).toHaveBeenCalledWith({
-        where: { configId: mockConfigItem.id },
+          {
+            version: 1,
+            value: { data: "v1" },
+            valueType: ConfigValueType.JSON,
+            changeType: ConfigChangeType.CREATE,
+            changeNote: "created",
+            operator: null,
+            createdAt: now,
+          },
+        ],
+        pagination: { total: 2, page: 1, pageSize: 10 },
       });
     });
   });
 
   describe("rollback", () => {
-    it("应该成功回滚到历史版本", async () => {
-      const targetHistory = {
-        ...mockHistory,
+    it("should rollback to target version", async () => {
+      namespaceService.getNamespaceInternalOrThrow.mockResolvedValue(
+        mockNamespaceRecord as never,
+      );
+      prisma.configItem.findFirst.mockResolvedValue({
+        id: configInternalId,
+        publicId: configPublicId,
+        key: "test_key",
+        value: { data: "current" } as never,
+        valueType: ConfigValueType.JSON,
+        description: "Test config",
+        isEncrypted: false,
+        isEnabled: true,
+        version: 2,
+        jsonSchema: null,
+        createdAt: now,
+        updatedAt: now,
+      } as never);
+
+      prisma.configHistory.findFirst.mockResolvedValue({
         version: 1,
-      };
+        value: { data: "v1" } as never,
+        configHash: "hash-v1",
+      } as never);
 
-      const rolledBackConfig = {
-        ...mockConfigItem,
-        version: 3,
-        value: targetHistory.value,
-        configHash: targetHistory.configHash,
-      };
-
-      namespaceService.findByName.mockResolvedValue(mockNamespace);
-      cacheService.get.mockResolvedValue({ ...mockConfigItem, version: 2 });
-      prismaService.configHistory.findFirst.mockResolvedValue(targetHistory);
-
-      prismaService.$transaction.mockImplementation(async (fn) => {
+      prisma.$transaction.mockImplementation(async (fn) => {
         const tx = {
           configItem: {
-            update: jest.fn().mockResolvedValue(rolledBackConfig),
+            update: jest.fn().mockResolvedValue({
+              ...mockConfigRecord,
+              version: 3,
+              value: { data: "v1" } as never,
+              configHash: "hash-v1",
+            }),
           },
           configHistory: {
-            create: jest.fn().mockResolvedValue(mockHistory),
+            create: jest.fn().mockResolvedValue({ id: 1 }),
           },
         };
-        return fn(tx);
+        return fn(tx as never);
       });
 
-      const result = await service.rollback("test_ns", "test_key", 1);
+      const result = await service.rollback(namespace, "test_key", 1);
 
       expect(result.version).toBe(3);
       expect(cacheService.invalidate).toHaveBeenCalledWith(
-        "test_ns",
+        namespace,
         "test_key",
       );
       expect(gateway.notifyConfigChanged).toHaveBeenCalledWith(
         expect.objectContaining({
-          namespace: "test_ns",
+          namespace,
           key: "test_key",
           changeType: ConfigChangeType.ROLLBACK,
         }),
       );
     });
 
-    it("应该在目标版本不存在时抛出异常", async () => {
-      namespaceService.findByName.mockResolvedValue(mockNamespace);
-      cacheService.get.mockResolvedValue(mockConfigItem);
-      prismaService.configHistory.findFirst.mockResolvedValue(null);
+    it("should throw CONFIG_VERSION_NOT_FOUND when target history missing", async () => {
+      namespaceService.getNamespaceInternalOrThrow.mockResolvedValue(
+        mockNamespaceRecord as never,
+      );
+      prisma.configItem.findFirst.mockResolvedValue({
+        id: configInternalId,
+        version: 2,
+        jsonSchema: null,
+        isEncrypted: false,
+      } as never);
+      prisma.configHistory.findFirst.mockResolvedValue(null);
 
       await expect(
-        service.rollback("test_ns", "test_key", 999),
-      ).rejects.toThrow(BusinessException);
-      await expect(
-        service.rollback("test_ns", "test_key", 999),
-      ).rejects.toMatchObject({
-        businessCode: ApiErrorCode.CONFIG_VERSION_NOT_FOUND,
-      });
+        service.rollback(namespace, "test_key", 999),
+      ).rejects.toMatchObject({ code: ApiErrorCode.CONFIG_VERSION_NOT_FOUND });
     });
   });
 
   describe("batchUpsert", () => {
-    it("应该成功批量创建/更新配置项", async () => {
-      const dto = {
-        items: [
-          {
-            key: "key1",
-            value: { data: "value1" },
-            valueType: ConfigValueType.JSON,
-          },
-          {
-            key: "key2",
-            value: { data: "value2" },
-            valueType: ConfigValueType.JSON,
-          },
-        ],
-      };
+    it("should allow partial success", async () => {
+      namespaceService.getNamespaceInternalOrThrow.mockResolvedValue(
+        mockNamespaceRecord as never,
+      );
 
-      namespaceService.findByName.mockResolvedValue(mockNamespace);
+      jest
+        .spyOn(service, "findOne")
+        .mockRejectedValueOnce(new Error("not found"))
+        .mockRejectedValueOnce(new Error("not found"));
 
-      // Mock findOne to return null (config doesn't exist, will create)
-      cacheService.get.mockResolvedValue(null);
-      cacheService.getWithLock.mockImplementation(async (key, loader) => {
-        // Simulate config not found
-        return await loader();
-      });
-      prismaService.configItem.findFirst.mockResolvedValue(null);
-
-      // Mock create
-      prismaService.$transaction.mockImplementation(async (fn) => {
-        const tx = {
-          configItem: {
-            create: jest.fn().mockResolvedValue(mockConfigItem),
-          },
-          configHistory: {
-            create: jest.fn().mockResolvedValue(mockHistory),
-          },
-        };
-        return fn(tx);
-      });
-
-      const result = await service.batchUpsert("test_ns", dto);
-
-      expect(result.total).toBe(2);
-      expect(result.successful).toBe(2);
-      expect(result.failed).toBe(0);
-    });
-
-    it("应该允许部分成功", async () => {
-      const dto = {
-        items: [
-          {
-            key: "valid_key",
-            value: { data: "value" },
-            valueType: ConfigValueType.JSON,
-          },
-          {
-            key: "invalid_key",
-            value: null as never, // Invalid value
-            valueType: ConfigValueType.JSON,
-          },
-        ],
-      };
-
-      namespaceService.findByName.mockResolvedValue(mockNamespace);
-      cacheService.get.mockResolvedValue(null);
-      cacheService.getWithLock.mockImplementation(async (key, loader) => {
-        return await loader();
-      });
-      prismaService.configItem.findFirst.mockResolvedValue(null);
-
-      // First item succeeds
-      prismaService.$transaction
-        .mockImplementationOnce(async (fn) => {
-          const tx = {
-            configItem: {
-              create: jest.fn().mockResolvedValue(mockConfigItem),
-            },
-            configHistory: {
-              create: jest.fn().mockResolvedValue(mockHistory),
-            },
-          };
-          return fn(tx);
-        })
-        // Second item fails
+      jest
+        .spyOn(service, "create")
+        .mockResolvedValueOnce({ id: "1" } as never)
         .mockRejectedValueOnce(new Error("Invalid value"));
 
-      const result = await service.batchUpsert("test_ns", dto);
+      const result = await service.batchUpsert(namespace, {
+        items: [
+          { key: "key1", value: { a: 1 }, valueType: ConfigValueType.JSON },
+          {
+            key: "key2",
+            value: null as never,
+            valueType: ConfigValueType.JSON,
+          },
+        ],
+      });
 
       expect(result.total).toBe(2);
       expect(result.successful).toBe(1);

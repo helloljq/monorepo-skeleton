@@ -11,8 +11,14 @@ describe("PermissionService", () => {
   let prismaService: jest.Mocked<PrismaService>;
   let permissionCacheService: jest.Mocked<PermissionCacheService>;
 
+  const now = new Date();
+  const permissionPublicId = "550e8400-e29b-41d4-a716-446655440300";
+  const permissionInternalId = 1;
+  const rolePublicId = "550e8400-e29b-41d4-a716-446655440400";
+
   const mockPermission = {
-    id: 1,
+    id: permissionInternalId,
+    publicId: permissionPublicId,
     code: "user:read",
     name: "Read Users",
     description: "Permission to read users",
@@ -20,17 +26,17 @@ describe("PermissionService", () => {
     action: "read",
     module: "system",
     isEnabled: true,
-    createdAt: new Date(),
-    updatedAt: new Date(),
-    RolePermission: [],
+    createdAt: now,
+    updatedAt: now,
+    rolePermissions: [],
   };
 
   const mockPermissionWithRoles = {
     ...mockPermission,
-    RolePermission: [
+    rolePermissions: [
       {
-        Role: {
-          id: 1,
+        role: {
+          publicId: rolePublicId,
           code: "ADMIN",
           name: "Administrator",
           type: RoleType.SYSTEM,
@@ -79,14 +85,24 @@ describe("PermissionService", () => {
       prismaService.permission.findMany.mockResolvedValue([mockPermission]);
       prismaService.permission.count.mockResolvedValue(1);
 
-      const result = await service.findAll({ page: 1, limit: 10 });
+      const result = await service.findAll({ page: 1, pageSize: 10 });
 
-      expect(result.data).toEqual([mockPermission]);
-      expect(result.meta).toEqual({
-        total: 1,
-        page: 1,
-        limit: 10,
-        totalPages: 1,
+      expect(result).toEqual({
+        items: [
+          {
+            id: permissionPublicId,
+            code: "user:read",
+            name: "Read Users",
+            description: "Permission to read users",
+            resource: "user",
+            action: "read",
+            module: "system",
+            isEnabled: true,
+            createdAt: now,
+            updatedAt: now,
+          },
+        ],
+        pagination: { total: 1, page: 1, pageSize: 10 },
       });
     });
 
@@ -94,7 +110,7 @@ describe("PermissionService", () => {
       prismaService.permission.findMany.mockResolvedValue([mockPermission]);
       prismaService.permission.count.mockResolvedValue(1);
 
-      await service.findAll({ page: 1, limit: 10, module: "system" });
+      await service.findAll({ page: 1, pageSize: 10, module: "system" });
 
       expect(prismaService.permission.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -107,7 +123,7 @@ describe("PermissionService", () => {
       prismaService.permission.findMany.mockResolvedValue([mockPermission]);
       prismaService.permission.count.mockResolvedValue(1);
 
-      await service.findAll({ page: 1, limit: 10, resource: "user" });
+      await service.findAll({ page: 1, pageSize: 10, resource: "user" });
 
       expect(prismaService.permission.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -123,16 +139,36 @@ describe("PermissionService", () => {
         mockPermissionWithRoles,
       );
 
-      const result = await service.findOne(1);
+      const result = await service.findOne(permissionPublicId);
 
-      expect(result).toEqual(mockPermissionWithRoles);
+      expect(result).toEqual({
+        id: permissionPublicId,
+        code: "user:read",
+        name: "Read Users",
+        description: "Permission to read users",
+        resource: "user",
+        action: "read",
+        module: "system",
+        isEnabled: true,
+        createdAt: now,
+        updatedAt: now,
+        roles: [
+          {
+            id: rolePublicId,
+            code: "ADMIN",
+            name: "Administrator",
+            type: RoleType.SYSTEM,
+            isEnabled: true,
+          },
+        ],
+      });
     });
 
     it("should throw PERMISSION_NOT_FOUND if permission does not exist", async () => {
       prismaService.permission.findUnique.mockResolvedValue(null);
 
-      await expect(service.findOne(999)).rejects.toMatchObject({
-        businessCode: ApiErrorCode.PERMISSION_NOT_FOUND,
+      await expect(service.findOne(permissionPublicId)).rejects.toMatchObject({
+        code: ApiErrorCode.PERMISSION_NOT_FOUND,
       });
     });
   });
@@ -140,16 +176,19 @@ describe("PermissionService", () => {
   describe("findModules", () => {
     it("should return grouped modules", async () => {
       prismaService.permission.groupBy.mockResolvedValue([
-        { module: "system", _count: { id: 5 } },
         { module: "business", _count: { id: 3 } },
+        { module: "system", _count: { id: 5 } },
       ]);
 
       const result = await service.findModules();
 
-      expect(result.data).toEqual([
-        { module: "system", count: 5 },
-        { module: "business", count: 3 },
-      ]);
+      expect(result).toEqual({
+        items: [
+          { module: "business", count: 3 },
+          { module: "system", count: 5 },
+        ],
+        pagination: { total: 2, page: 1, pageSize: 2 },
+      });
     });
   });
 
@@ -166,7 +205,18 @@ describe("PermissionService", () => {
         module: "system",
       });
 
-      expect(result).toEqual(mockPermission);
+      expect(result).toEqual({
+        id: permissionPublicId,
+        code: "user:read",
+        name: "Read Users",
+        description: "Permission to read users",
+        resource: "user",
+        action: "read",
+        module: "system",
+        isEnabled: true,
+        createdAt: now,
+        updatedAt: now,
+      });
     });
 
     it("should throw CONFLICT if permission code already exists", async () => {
@@ -180,7 +230,7 @@ describe("PermissionService", () => {
           action: "read",
         }),
       ).rejects.toMatchObject({
-        businessCode: ApiErrorCode.CONFLICT,
+        code: ApiErrorCode.CONFLICT,
       });
     });
   });
@@ -195,7 +245,9 @@ describe("PermissionService", () => {
         name: "Updated Name",
       });
 
-      const result = await service.update(1, { name: "Updated Name" });
+      const result = await service.update(permissionPublicId, {
+        name: "Updated Name",
+      });
 
       expect(result.name).toBe("Updated Name");
     });
@@ -204,7 +256,7 @@ describe("PermissionService", () => {
       const permissionWithRoles = {
         ...mockPermission,
         isEnabled: true,
-        RolePermission: [{ Role: { code: "ADMIN" } }],
+        rolePermissions: [{ role: { code: "ADMIN" } }],
       };
       prismaService.permission.findUnique.mockResolvedValue(
         permissionWithRoles,
@@ -214,7 +266,7 @@ describe("PermissionService", () => {
         isEnabled: false,
       });
 
-      await service.update(1, { isEnabled: false });
+      await service.update(permissionPublicId, { isEnabled: false });
 
       expect(permissionCacheService.invalidateRoleCaches).toHaveBeenCalledWith([
         "ADMIN",
@@ -230,7 +282,7 @@ describe("PermissionService", () => {
         name: "Updated Name",
       });
 
-      await service.update(1, { name: "Updated Name" });
+      await service.update(permissionPublicId, { name: "Updated Name" });
 
       expect(
         permissionCacheService.invalidateRoleCaches,
@@ -245,7 +297,7 @@ describe("PermissionService", () => {
       );
       prismaService.permission.delete.mockResolvedValue(mockPermission);
 
-      const result = await service.remove(1);
+      const result = await service.remove(permissionPublicId);
 
       expect(result.message).toBe("Permission deleted successfully");
       expect(permissionCacheService.invalidateRoleCaches).toHaveBeenCalledWith([
@@ -256,22 +308,22 @@ describe("PermissionService", () => {
     it("should throw PERMISSION_NOT_FOUND if permission does not exist", async () => {
       prismaService.permission.findUnique.mockResolvedValue(null);
 
-      await expect(service.remove(999)).rejects.toMatchObject({
-        businessCode: ApiErrorCode.PERMISSION_NOT_FOUND,
+      await expect(service.remove(permissionPublicId)).rejects.toMatchObject({
+        code: ApiErrorCode.PERMISSION_NOT_FOUND,
       });
     });
 
     it("should not call invalidateRoleCaches if no roles are affected", async () => {
       const permissionWithNoRoles = {
         ...mockPermission,
-        roles: [],
+        rolePermissions: [],
       };
       prismaService.permission.findUnique.mockResolvedValue(
         permissionWithNoRoles,
       );
       prismaService.permission.delete.mockResolvedValue(mockPermission);
 
-      await service.remove(1);
+      await service.remove(permissionPublicId);
 
       expect(
         permissionCacheService.invalidateRoleCaches,

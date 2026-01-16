@@ -124,14 +124,19 @@ export class ConfigCenterGateway
     const userWithPermissions = await this.prisma.user.findUnique({
       where: { id: userId },
       select: {
-        UserRole_UserRole_userIdToUser: {
+        userRoles: {
+          where: {
+            OR: [{ expiresAt: null }, { expiresAt: { gt: new Date() } }],
+          },
           select: {
-            Role: {
+            role: {
               select: {
-                RolePermission: {
+                isEnabled: true,
+                deletedAt: true,
+                rolePermissions: {
                   select: {
-                    Permission: {
-                      select: { code: true },
+                    permission: {
+                      select: { code: true, isEnabled: true },
                     },
                   },
                 },
@@ -147,16 +152,17 @@ export class ConfigCenterGateway
     }
 
     // 展平权限码
-    const permissions: string[] = [];
-    for (const userRole of userWithPermissions.UserRole_UserRole_userIdToUser) {
-      const { Role: role } = userRole;
-      for (const rolePermission of role.RolePermission) {
-        const { Permission: permission } = rolePermission;
-        permissions.push(permission.code);
+    const permissions = new Set<string>();
+    for (const userRole of userWithPermissions.userRoles) {
+      const role = userRole.role;
+      if (!role.isEnabled || role.deletedAt) continue;
+      for (const rolePermission of role.rolePermissions) {
+        if (!rolePermission.permission.isEnabled) continue;
+        permissions.add(rolePermission.permission.code);
       }
     }
 
-    return permissions.includes(permissionCode);
+    return permissions.has(permissionCode);
   }
 
   /**

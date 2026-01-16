@@ -5,7 +5,7 @@ import {
   Injectable,
 } from "@nestjs/common";
 import { Reflector } from "@nestjs/core";
-import { Request } from "express";
+import type { Request } from "express";
 
 import { BusinessException } from "../../../common/errors/business.exception";
 import { ApiErrorCode } from "../../../common/errors/error-codes";

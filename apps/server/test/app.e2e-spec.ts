@@ -28,7 +28,7 @@ describe("AppController (e2e)", () => {
     app.enableShutdownHooks();
 
     // keep test config aligned with src/main.ts
-    app.setGlobalPrefix("api/v1");
+    app.setGlobalPrefix("v1");
 
     const httpAdapter = app.get<HttpAdapterHost>(HttpAdapterHost);
     app.useGlobalFilters(
@@ -41,7 +41,7 @@ describe("AppController (e2e)", () => {
     const redis = app.get<RedisClient>(REDIS_CLIENT);
     app.useGlobalInterceptors(
       new IdempotencyInterceptor(reflector, redis, configService),
-      new AuditContextInterceptor(),
+      new AuditContextInterceptor(reflector),
       new TransformInterceptor(reflector),
     );
 
@@ -54,23 +54,20 @@ describe("AppController (e2e)", () => {
     }
   });
 
-  it("/api/v1 (GET)", () => {
+  it("/v1 (GET)", () => {
     return request(app.getHttpServer())
-      .get("/api/v1")
+      .get("/v1")
       .expect(200)
       .expect((res) => {
         // TransformInterceptor wraps it
         const body = res.body as {
-          code: number;
+          code: string;
           message: string;
           data: string;
-          timestamp: number;
         };
-        if (body.code !== 0) throw new Error("unexpected code");
-        if (body.message !== "success") throw new Error("unexpected message");
+        if (body.code !== "SUCCESS") throw new Error("unexpected code");
+        if (body.message !== "ok") throw new Error("unexpected message");
         if (body.data !== "Hello World!") throw new Error("unexpected data");
-        if (typeof body.timestamp !== "number")
-          throw new Error("unexpected timestamp");
       });
   });
 });

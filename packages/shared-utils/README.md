@@ -5,7 +5,7 @@
 ## 使用
 
 ```typescript
-import { isValidPhone, formatAmount, uuid } from '@{{NAME}}/shared-utils'
+import { isValidPhone, formatAmount, uuid } from "@{{NAME}}/shared-utils";
 ```
 
 ## 包含工具

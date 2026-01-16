@@ -4,7 +4,7 @@ import {
   Delete,
   Get,
   Param,
-  ParseIntPipe,
+  ParseUUIDPipe,
   Patch,
   Post,
   Query,
@@ -35,7 +35,7 @@ export class RoleController {
   @ApiOperation({ summary: "角色列表" })
   @ApiQuery({ name: "page", required: false, description: "页码（从1开始）" })
   @ApiQuery({
-    name: "limit",
+    name: "pageSize",
     required: false,
     description: "每页数量（1-100）",
   })
@@ -49,7 +49,7 @@ export class RoleController {
   @RequirePermissions("role:read")
   @ApiOperation({ summary: "角色详情" })
   @ApiOkResponse({ description: "返回角色详情（含权限列表）" })
-  findOne(@Param("id", ParseIntPipe) id: number) {
+  findOne(@Param("id", new ParseUUIDPipe({ version: "4" })) id: string) {
     return this.roleService.findOne(id);
   }
 
@@ -57,7 +57,9 @@ export class RoleController {
   @RequirePermissions("role:read")
   @ApiOperation({ summary: "获取角色权限列表" })
   @ApiOkResponse({ description: "返回该角色的权限列表" })
-  findRolePermissions(@Param("id", ParseIntPipe) id: number) {
+  findRolePermissions(
+    @Param("id", new ParseUUIDPipe({ version: "4" })) id: string,
+  ) {
     return this.roleService.findRolePermissions(id);
   }
 
@@ -73,7 +75,10 @@ export class RoleController {
   @RequirePermissions("role:update")
   @ApiOperation({ summary: "更新角色" })
   @ApiOkResponse({ description: "返回更新后的角色" })
-  update(@Param("id", ParseIntPipe) id: number, @Body() dto: UpdateRoleDto) {
+  update(
+    @Param("id", new ParseUUIDPipe({ version: "4" })) id: string,
+    @Body() dto: UpdateRoleDto,
+  ) {
     return this.roleService.update(id, dto);
   }
 
@@ -81,7 +86,7 @@ export class RoleController {
   @RequirePermissions("role:delete")
   @ApiOperation({ summary: "删除角色" })
   @ApiOkResponse({ description: "返回删除结果" })
-  remove(@Param("id", ParseIntPipe) id: number) {
+  remove(@Param("id", new ParseUUIDPipe({ version: "4" })) id: string) {
     return this.roleService.remove(id);
   }
 
@@ -90,7 +95,7 @@ export class RoleController {
   @ApiOperation({ summary: "为角色分配权限（替换模式）" })
   @ApiOkResponse({ description: "权限分配成功" })
   assignPermissions(
-    @Param("id", ParseIntPipe) id: number,
+    @Param("id", new ParseUUIDPipe({ version: "4" })) id: string,
     @Body() dto: AssignPermissionsDto,
   ) {
     return this.roleService.assignPermissions(id, dto.permissionIds);
@@ -101,8 +106,9 @@ export class RoleController {
   @ApiOperation({ summary: "移除角色的权限" })
   @ApiOkResponse({ description: "权限移除成功" })
   removePermission(
-    @Param("id", ParseIntPipe) id: number,
-    @Param("permissionId", ParseIntPipe) permissionId: number,
+    @Param("id", new ParseUUIDPipe({ version: "4" })) id: string,
+    @Param("permissionId", new ParseUUIDPipe({ version: "4" }))
+    permissionId: string,
   ) {
     return this.roleService.removePermission(id, permissionId);
   }

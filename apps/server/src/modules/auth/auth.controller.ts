@@ -12,6 +12,8 @@ import { ApiOkResponse, ApiOperation, ApiTags } from "@nestjs/swagger";
 import { Throttle } from "@nestjs/throttler";
 import type { Request as ExpressRequest, Response } from "express";
 
+import { BusinessException } from "../../common/errors/business.exception";
+import { ApiErrorCode } from "../../common/errors/error-codes";
 import { parseDurationToSeconds } from "../../common/utils/time.util";
 import { AppConfigService } from "../../config/app-config.service";
 import { AuthService } from "./auth.service";
@@ -26,6 +28,8 @@ import {
   RegisterResponseDto,
   SendSmsCodeDto,
   TokenResponseDto,
+  WebLoginResponseDto,
+  WebRefreshDto,
 } from "./dto/auth.dto";
 import { JwtAuthGuard } from "./guards/jwt-auth.guard";
 
@@ -59,6 +63,7 @@ export class AuthController {
 
     res.cookie(COOKIE_ACCESS_TOKEN, tokens.accessToken, {
       maxAge: tokens.accessExpiresInSeconds * 1000,
+      httpOnly: true,
       sameSite: "lax",
       secure: isProduction,
       path: "/",
@@ -66,6 +71,7 @@ export class AuthController {
 
     res.cookie(COOKIE_REFRESH_TOKEN, tokens.refreshToken, {
       maxAge: refreshTtlSeconds * 1000,
+      httpOnly: true,
       sameSite: "lax",
       secure: isProduction,
       path: "/",
@@ -79,12 +85,14 @@ export class AuthController {
     const isProduction = this.config.isProduction;
 
     res.clearCookie(COOKIE_ACCESS_TOKEN, {
+      httpOnly: true,
       sameSite: "lax",
       secure: isProduction,
       path: "/",
     });
 
     res.clearCookie(COOKIE_REFRESH_TOKEN, {
+      httpOnly: true,
       sameSite: "lax",
       secure: isProduction,
       path: "/",
@@ -116,6 +124,24 @@ export class AuthController {
   }
 
   @Public()
+  @Post("web/login")
+  @Throttle({ default: { limit: 5, ttl: 60000 } })
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: "Web 登录（HttpOnly Cookie）" })
+  @ApiOkResponse({
+    description: "登录成功（不返回 Token）",
+    type: WebLoginResponseDto,
+  })
+  async webLogin(
+    @Body() dto: LoginDto,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    const { user, tokens } = await this.authService.loginWeb(dto);
+    this.setAuthCookies(res, tokens);
+    return user;
+  }
+
+  @Public()
   @Post("refresh")
   @Throttle({ default: { limit: 10, ttl: 60000 } }) // 10 refresh attempts per minute per IP
   @HttpCode(HttpStatus.OK)
@@ -128,6 +154,35 @@ export class AuthController {
     const tokens = await this.authService.refresh(dto);
     this.setAuthCookies(res, tokens);
     return tokens;
+  }
+
+  @Public()
+  @Post("web/refresh")
+  @Throttle({ default: { limit: 10, ttl: 60000 } })
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: "Web 刷新（HttpOnly Cookie）" })
+  @ApiOkResponse({ description: "刷新成功（不返回 Token）" })
+  async webRefresh(
+    @Request() req: ExpressRequest,
+    @Body() dto: WebRefreshDto,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    const refreshToken =
+      (req.cookies?.[COOKIE_REFRESH_TOKEN] as unknown) ?? null;
+    if (typeof refreshToken !== "string" || refreshToken.length === 0) {
+      throw new BusinessException({
+        code: ApiErrorCode.UNAUTHORIZED,
+        message: "Unauthorized",
+        status: HttpStatus.UNAUTHORIZED,
+      });
+    }
+
+    const tokens = await this.authService.refresh({
+      refreshToken,
+      deviceId: dto.deviceId,
+    });
+    this.setAuthCookies(res, tokens);
+    return {};
   }
 
   @Public()

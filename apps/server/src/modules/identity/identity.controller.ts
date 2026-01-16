@@ -6,7 +6,7 @@ import {
   HttpCode,
   HttpStatus,
   Param,
-  ParseIntPipe,
+  ParseUUIDPipe,
   Post,
   Request,
 } from "@nestjs/common";
@@ -42,7 +42,7 @@ export class IdentityController {
     );
 
     const maskedIdentities: IdentityItemDto[] = identities.map((identity) => ({
-      id: identity.id,
+      id: identity.publicId,
       provider: identity.provider,
       providerId: this.identityService.maskProviderId(
         identity.provider,
@@ -97,7 +97,7 @@ export class IdentityController {
   @ApiOkResponse({ description: "解绑成功", type: UnbindResponseDto })
   async unbindIdentity(
     @Request() req: ExpressRequest & { user: { userId: number } },
-    @Param("id", ParseIntPipe) identityId: number,
+    @Param("id", new ParseUUIDPipe({ version: "4" })) identityId: string,
   ): Promise<UnbindResponseDto> {
     await this.identityService.unbindIdentity(req.user.userId, identityId);
 

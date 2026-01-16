@@ -4,7 +4,7 @@ import {
   Delete,
   Get,
   Param,
-  ParseIntPipe,
+  ParseUUIDPipe,
   Patch,
   Post,
   Query,
@@ -46,7 +46,7 @@ export class DictionaryController {
     example: 1,
   })
   @ApiQuery({
-    name: "limit",
+    name: "pageSize",
     required: false,
     description: "每页数量（1-100）",
     example: 10,
@@ -80,7 +80,7 @@ export class DictionaryController {
       "1. 调用此接口获取 configHash\n" +
       "2. 对比本地缓存的 hash\n" +
       "3. 仅在 hash 变化时调用 `/type/:type` 拉取完整数据\n\n" +
-      "详见: [Dictionary API 前端使用指南](../../docs/features/DICTIONARY_API_GUIDE.md)",
+      "详见: [Dictionary API 前端使用指南](../../../docs/features/dictionary-api-guide.md)",
   })
   @ApiParam({
     name: "type",
@@ -97,8 +97,8 @@ export class DictionaryController {
     description: "返回字典元数据列表",
     schema: {
       example: {
-        code: 0,
-        message: "success",
+        code: "SUCCESS",
+        message: "ok",
         data: [
           {
             key: "IOS_V2_0",
@@ -111,7 +111,6 @@ export class DictionaryController {
             configHash: "abc123def456789...",
           },
         ],
-        timestamp: 1735000000000,
       },
     },
   })
@@ -148,11 +147,11 @@ export class DictionaryController {
     description: "返回指定类型的字典列表",
     schema: {
       example: {
-        code: 0,
-        message: "success",
+        code: "SUCCESS",
+        message: "ok",
         data: [
           {
-            id: 1,
+            id: "550e8400-e29b-41d4-a716-446655440000",
             type: "gender",
             key: "MALE",
             value: 1,
@@ -166,7 +165,7 @@ export class DictionaryController {
             updatedAt: "2024-12-24T07:00:00.000Z",
           },
           {
-            id: 2,
+            id: "550e8400-e29b-41d4-a716-446655440001",
             type: "gender",
             key: "FEMALE",
             value: 2,
@@ -180,7 +179,6 @@ export class DictionaryController {
             updatedAt: "2024-12-24T07:00:00.000Z",
           },
         ],
-        timestamp: 1735000000000,
       },
     },
   })
@@ -191,9 +189,13 @@ export class DictionaryController {
   @Get(":id")
   @Public()
   @ApiOperation({ summary: "字典详情" })
-  @ApiParam({ name: "id", description: "字典ID", example: 1 })
+  @ApiParam({
+    name: "id",
+    description: "字典 ID（Public ID，UUID）",
+    example: "550e8400-e29b-41d4-a716-446655440000",
+  })
   @ApiOkResponse({ description: "返回字典详情" })
-  findOne(@Param("id", ParseIntPipe) id: number) {
+  findOne(@Param("id", new ParseUUIDPipe({ version: "4" })) id: string) {
     return this.dictionaryService.findOne(id);
   }
 
@@ -227,10 +229,14 @@ export class DictionaryController {
     summary: "更新字典",
     description: "更新字典项的值、标签、描述等。type 和 key 不可修改。",
   })
-  @ApiParam({ name: "id", description: "字典ID", example: 1 })
+  @ApiParam({
+    name: "id",
+    description: "字典 ID（Public ID，UUID）",
+    example: "550e8400-e29b-41d4-a716-446655440000",
+  })
   @ApiOkResponse({ description: "返回更新后的字典" })
   update(
-    @Param("id", ParseIntPipe) id: number,
+    @Param("id", new ParseUUIDPipe({ version: "4" })) id: string,
     @Body() dto: UpdateDictionaryDto,
   ) {
     return this.dictionaryService.update(id, dto);
@@ -242,9 +248,13 @@ export class DictionaryController {
     summary: "删除字典（软删除）",
     description: "软删除字典项，支持后续恢复。会自动失效相关缓存。",
   })
-  @ApiParam({ name: "id", description: "字典ID", example: 1 })
+  @ApiParam({
+    name: "id",
+    description: "字典 ID（Public ID，UUID）",
+    example: "550e8400-e29b-41d4-a716-446655440000",
+  })
   @ApiOkResponse({ description: "返回删除成功消息" })
-  remove(@Param("id", ParseIntPipe) id: number) {
+  remove(@Param("id", new ParseUUIDPipe({ version: "4" })) id: string) {
     return this.dictionaryService.remove(id);
   }
 }

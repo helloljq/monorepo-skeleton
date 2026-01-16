@@ -10,6 +10,14 @@ import {
   UpdatePermissionDto,
 } from "./dto";
 
+type RoleItem = {
+  id: string;
+  code: string;
+  name: string;
+  type: string;
+  isEnabled: boolean;
+};
+
 @Injectable()
 export class PermissionService {
   private readonly logger = new Logger(PermissionService.name);
@@ -23,8 +31,16 @@ export class PermissionService {
    * 获取权限列表（分页）
    */
   async findAll(query: QueryPermissionDto) {
-    const { page, limit, module, resource, isEnabled } = query;
-    const skip = (page - 1) * limit;
+    const {
+      page,
+      pageSize: rawPageSize,
+      limit,
+      module,
+      resource,
+      isEnabled,
+    } = query;
+    const pageSize = rawPageSize ?? limit ?? 10;
+    const skip = (page - 1) * pageSize;
 
     const where = {
       ...(module && { module }),
@@ -32,23 +48,33 @@ export class PermissionService {
       ...(isEnabled !== undefined && { isEnabled }),
     };
 
-    const [data, total] = await Promise.all([
+    const [permissions, total] = await Promise.all([
       this.prisma.permission.findMany({
         where,
         skip,
-        take: limit,
+        take: pageSize,
         orderBy: [{ module: "asc" }, { resource: "asc" }, { action: "asc" }],
       }),
       this.prisma.permission.count({ where }),
     ]);
 
     return {
-      data,
-      meta: {
+      items: permissions.map((permission) => ({
+        id: permission.publicId,
+        code: permission.code,
+        name: permission.name,
+        description: permission.description,
+        resource: permission.resource,
+        action: permission.action,
+        module: permission.module,
+        isEnabled: permission.isEnabled,
+        createdAt: permission.createdAt,
+        updatedAt: permission.updatedAt,
+      })),
+      pagination: {
         total,
         page,
-        limit,
-        totalPages: Math.ceil(total / limit),
+        pageSize,
       },
     };
   }
@@ -56,15 +82,15 @@ export class PermissionService {
   /**
    * 获取权限详情
    */
-  async findOne(id: number) {
+  async findOne(permissionPublicId: string) {
     const permission = await this.prisma.permission.findUnique({
-      where: { id },
+      where: { publicId: permissionPublicId },
       include: {
-        RolePermission: {
+        rolePermissions: {
           include: {
-            Role: {
+            role: {
               select: {
-                id: true,
+                publicId: true,
                 code: true,
                 name: true,
                 type: true,
@@ -84,7 +110,27 @@ export class PermissionService {
       });
     }
 
-    return permission;
+    const roles: RoleItem[] = permission.rolePermissions.map((rp) => ({
+      id: rp.role.publicId,
+      code: rp.role.code,
+      name: rp.role.name,
+      type: rp.role.type,
+      isEnabled: rp.role.isEnabled,
+    }));
+
+    return {
+      id: permission.publicId,
+      code: permission.code,
+      name: permission.name,
+      description: permission.description,
+      resource: permission.resource,
+      action: permission.action,
+      module: permission.module,
+      isEnabled: permission.isEnabled,
+      createdAt: permission.createdAt,
+      updatedAt: permission.updatedAt,
+      roles,
+    };
   }
 
   /**
@@ -104,18 +150,17 @@ export class PermissionService {
       },
     });
 
-    const data = modules.map((m) => ({
+    const items = modules.map((m) => ({
       module: m.module,
       count: m._count.id,
     }));
 
     return {
-      data,
-      meta: {
-        total: data.length,
+      items,
+      pagination: {
+        total: items.length,
         page: 1,
-        limit: data.length,
-        totalPages: 1,
+        pageSize: items.length,
       },
     };
   }
@@ -137,7 +182,7 @@ export class PermissionService {
       });
     }
 
-    return this.prisma.permission.create({
+    const created = await this.prisma.permission.create({
       data: {
         code: dto.code,
         name: dto.name,
@@ -147,16 +192,42 @@ export class PermissionService {
         module: dto.module,
       },
     });
+
+    return {
+      id: created.publicId,
+      code: created.code,
+      name: created.name,
+      description: created.description,
+      resource: created.resource,
+      action: created.action,
+      module: created.module,
+      isEnabled: created.isEnabled,
+      createdAt: created.createdAt,
+      updatedAt: created.updatedAt,
+    };
   }
 
   /**
    * 更新权限
    */
-  async update(id: number, dto: UpdatePermissionDto) {
-    const permission = await this.findOne(id);
+  async update(permissionPublicId: string, dto: UpdatePermissionDto) {
+    const current = await this.prisma.permission.findUnique({
+      where: { publicId: permissionPublicId },
+      include: {
+        rolePermissions: { include: { role: { select: { code: true } } } },
+      },
+    });
+
+    if (!current) {
+      throw new BusinessException({
+        code: ApiErrorCode.PERMISSION_NOT_FOUND,
+        message: "Permission not found",
+        status: HttpStatus.NOT_FOUND,
+      });
+    }
 
     const updated = await this.prisma.permission.update({
-      where: { id },
+      where: { id: current.id },
       data: {
         name: dto.name,
         description: dto.description,
@@ -166,39 +237,64 @@ export class PermissionService {
     });
 
     // 如果权限状态变更，需要失效相关角色的缓存
-    if (dto.isEnabled !== undefined && dto.isEnabled !== permission.isEnabled) {
-      const affectedRoles = permission.RolePermission.map((rp) => rp.Role.code);
-      if (affectedRoles.length > 0) {
-        await this.permissionCache.invalidateRoleCaches(affectedRoles);
-        this.logger.debug(
-          { permissionId: id, affectedRoles },
-          "[permission] Invalidated role caches due to permission status change",
-        );
-      }
+    if (
+      dto.isEnabled !== undefined &&
+      dto.isEnabled !== current.isEnabled &&
+      current.rolePermissions.length > 0
+    ) {
+      const affectedRoles = current.rolePermissions.map((rp) => rp.role.code);
+      await this.permissionCache.invalidateRoleCaches(affectedRoles);
+      this.logger.debug(
+        { permissionPublicId, affectedRoles },
+        "[permission] Invalidated role caches due to permission status change",
+      );
     }
 
-    return updated;
+    return {
+      id: updated.publicId,
+      code: updated.code,
+      name: updated.name,
+      description: updated.description,
+      resource: updated.resource,
+      action: updated.action,
+      module: updated.module,
+      isEnabled: updated.isEnabled,
+      createdAt: updated.createdAt,
+      updatedAt: updated.updatedAt,
+    };
   }
 
   /**
    * 删除权限
    * 注意: Permission 不支持软删除，直接硬删除
    */
-  async remove(id: number) {
-    const permission = await this.findOne(id);
+  async remove(permissionPublicId: string) {
+    const permission = await this.prisma.permission.findUnique({
+      where: { publicId: permissionPublicId },
+      include: {
+        rolePermissions: { include: { role: { select: { code: true } } } },
+      },
+    });
 
-    // 获取受影响的角色，用于后续失效缓存
-    const affectedRoles = permission.RolePermission.map((rp) => rp.Role.code);
+    if (!permission) {
+      throw new BusinessException({
+        code: ApiErrorCode.PERMISSION_NOT_FOUND,
+        message: "Permission not found",
+        status: HttpStatus.NOT_FOUND,
+      });
+    }
+
+    const affectedRoles = permission.rolePermissions.map((rp) => rp.role.code);
 
     await this.prisma.permission.delete({
-      where: { id },
+      where: { id: permission.id },
     });
 
     // 失效相关角色的缓存
     if (affectedRoles.length > 0) {
       await this.permissionCache.invalidateRoleCaches(affectedRoles);
       this.logger.debug(
-        { permissionId: id, affectedRoles },
+        { permissionPublicId, affectedRoles },
         "[permission] Invalidated role caches due to permission deletion",
       );
     }

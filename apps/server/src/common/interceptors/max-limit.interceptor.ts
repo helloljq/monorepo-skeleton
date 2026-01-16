@@ -6,7 +6,7 @@ import {
   NestInterceptor,
 } from "@nestjs/common";
 import { Reflector } from "@nestjs/core";
-import { Request } from "express";
+import type { Request } from "express";
 import { Observable } from "rxjs";
 
 import {
@@ -51,6 +51,11 @@ export class MaxLimitInterceptor implements NestInterceptor {
 
   private extractLimit(request: Request): number | undefined {
     // 优先从 query 获取（GET 请求）
+    const queryPageSize = request.query?.pageSize;
+    if (queryPageSize !== undefined) {
+      const parsed = Number(queryPageSize);
+      return isNaN(parsed) ? undefined : parsed;
+    }
     const queryLimit = request.query?.limit;
     if (queryLimit !== undefined) {
       const parsed = Number(queryLimit);
@@ -58,6 +63,11 @@ export class MaxLimitInterceptor implements NestInterceptor {
     }
 
     // 从 body 获取（POST/PATCH 请求）
+    const bodyPageSize = request.body?.pageSize;
+    if (bodyPageSize !== undefined) {
+      const parsed = Number(bodyPageSize);
+      return isNaN(parsed) ? undefined : parsed;
+    }
     const bodyLimit = request.body?.limit;
     if (bodyLimit !== undefined) {
       const parsed = Number(bodyLimit);

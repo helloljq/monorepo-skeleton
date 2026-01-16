@@ -7,78 +7,23 @@ import { UserService } from "./user.service";
 
 describe("UserService", () => {
   let service: UserService;
-  let prismaService: jest.Mocked<PrismaService>;
+  let prisma: jest.Mocked<PrismaService>;
 
-  const mockUser = {
-    id: 1,
-    email: "test@example.com",
-    name: "Test User",
-    status: "ACTIVE",
-    avatar: null,
-    password: "hashed",
-    deletedAt: null,
-    deletedById: null,
-    deleteReason: null,
-    createdAt: new Date(),
-    updatedAt: new Date(),
-    UserRole_UserRole_userIdToUser: [
-      {
-        id: 1,
-        userId: 1,
-        roleId: 1,
-        grantedBy: null,
-        grantedAt: new Date(),
-        expiresAt: null,
-        Role: {
-          id: 1,
-          code: "USER",
-          name: "User",
-          type: RoleType.SYSTEM,
-          isEnabled: true,
-        },
-      },
-    ],
-  };
+  const userPublicId = "550e8400-e29b-41d4-a716-446655440000";
+  const userInternalId = 1;
 
-  const mockRole = {
-    id: 2,
-    code: "ADMIN",
-    name: "Administrator",
-    description: "Admin role",
-    type: RoleType.SYSTEM,
-    isEnabled: true,
-    createdAt: new Date(),
-    updatedAt: new Date(),
-    deletedAt: null,
-    deletedById: null,
-    deleteReason: null,
-  };
+  const rolePublicId = "550e8400-e29b-41d4-a716-446655440001";
+  const roleInternalId = 10;
 
-  const mockUserRole = {
-    id: 1,
-    userId: 1,
-    roleId: 2,
-    grantedBy: null,
-    grantedAt: new Date(),
-    expiresAt: null,
-    Role: {
-      id: 2,
-      code: "ADMIN",
-      name: "Administrator",
-      type: RoleType.SYSTEM,
-      isEnabled: true,
-      deletedAt: null,
-    },
-    User_UserRole_grantedByToUser: null,
-  };
+  const grantedByPublicId = "550e8400-e29b-41d4-a716-446655440002";
 
   beforeEach(async () => {
-    const mockPrismaService = {
+    const mockPrisma: Partial<jest.Mocked<PrismaService>> = {
       soft: {
         user: {
-          findUnique: jest.fn(),
           findMany: jest.fn(),
           count: jest.fn(),
+          findUnique: jest.fn(),
         },
         role: {
           findUnique: jest.fn(),
@@ -91,424 +36,375 @@ describe("UserService", () => {
         create: jest.fn(),
         delete: jest.fn(),
       },
-      $transaction: jest.fn((fn: (tx: unknown) => Promise<unknown>) =>
-        fn({
-          userRole: {
-            deleteMany: jest.fn(),
-            createMany: jest.fn(),
-          },
-        }),
-      ),
+      $transaction: jest.fn(),
     };
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         UserService,
-        { provide: PrismaService, useValue: mockPrismaService },
+        { provide: PrismaService, useValue: mockPrisma },
       ],
     }).compile();
 
-    service = module.get<UserService>(UserService);
-    prismaService = module.get(PrismaService);
+    service = module.get(UserService);
+    prisma = module.get(PrismaService);
   });
 
   describe("findAll", () => {
-    const mockUserList = [
-      {
-        id: 1,
-        name: "Test User",
-        avatar: null,
-        email: "test@example.com",
-        status: "ACTIVE",
-        createdAt: new Date(),
-        updatedAt: new Date(),
-        _count: { UserRole_UserRole_userIdToUser: 1 },
-      },
-    ];
+    it("should return items and pagination", async () => {
+      const now = new Date();
+      prisma.soft.user.findMany.mockResolvedValue([
+        {
+          publicId: userPublicId,
+          name: "Test User",
+          avatar: null,
+          email: "test@example.com",
+          status: "ACTIVE",
+          createdAt: now,
+          updatedAt: now,
+          _count: { userRoles: 2 },
+        },
+      ]);
+      prisma.soft.user.count.mockResolvedValue(1);
 
-    it("should return paginated users", async () => {
-      prismaService.soft.user.findMany.mockResolvedValue(mockUserList);
-      prismaService.soft.user.count.mockResolvedValue(1);
+      const result = await service.findAll({ page: 1, pageSize: 10 });
 
-      const result = await service.findAll({ page: 1, limit: 10 });
-
-      expect(result.data).toEqual(mockUserList);
-      expect(result.meta).toEqual({
-        total: 1,
-        page: 1,
-        limit: 10,
-        totalPages: 1,
+      expect(result).toEqual({
+        items: [
+          {
+            id: userPublicId,
+            name: "Test User",
+            avatar: null,
+            email: "test@example.com",
+            status: "ACTIVE",
+            createdAt: now,
+            updatedAt: now,
+            roleCount: 2,
+          },
+        ],
+        pagination: { total: 1, page: 1, pageSize: 10 },
       });
     });
 
-    it("should filter by id when provided", async () => {
-      prismaService.soft.user.findMany.mockResolvedValue(mockUserList);
-      prismaService.soft.user.count.mockResolvedValue(1);
+    it("should filter by public id when provided", async () => {
+      prisma.soft.user.findMany.mockResolvedValue([]);
+      prisma.soft.user.count.mockResolvedValue(0);
 
-      await service.findAll({ page: 1, limit: 10, id: 1 });
+      await service.findAll({ page: 1, pageSize: 10, id: userPublicId });
 
-      expect(prismaService.soft.user.findMany).toHaveBeenCalledWith(
+      expect(prisma.soft.user.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
-          where: expect.objectContaining({ id: 1 }),
+          where: expect.objectContaining({ publicId: userPublicId }),
         }),
       );
     });
 
-    it("should filter by email when provided", async () => {
-      prismaService.soft.user.findMany.mockResolvedValue(mockUserList);
-      prismaService.soft.user.count.mockResolvedValue(1);
+    it("should filter by role public id when provided", async () => {
+      prisma.soft.user.findMany.mockResolvedValue([]);
+      prisma.soft.user.count.mockResolvedValue(0);
 
-      await service.findAll({ page: 1, limit: 10, email: "test" });
+      await service.findAll({ page: 1, pageSize: 10, roleId: rolePublicId });
 
-      expect(prismaService.soft.user.findMany).toHaveBeenCalledWith(
+      expect(prisma.soft.user.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
           where: expect.objectContaining({
-            email: { contains: "test", mode: "insensitive" },
-          }),
-        }),
-      );
-    });
-
-    it("should filter by name when provided", async () => {
-      prismaService.soft.user.findMany.mockResolvedValue(mockUserList);
-      prismaService.soft.user.count.mockResolvedValue(1);
-
-      await service.findAll({ page: 1, limit: 10, name: "Test" });
-
-      expect(prismaService.soft.user.findMany).toHaveBeenCalledWith(
-        expect.objectContaining({
-          where: expect.objectContaining({
-            name: { contains: "Test", mode: "insensitive" },
-          }),
-        }),
-      );
-    });
-
-    it("should filter by roleId when provided", async () => {
-      prismaService.soft.user.findMany.mockResolvedValue(mockUserList);
-      prismaService.soft.user.count.mockResolvedValue(1);
-
-      await service.findAll({ page: 1, limit: 10, roleId: 2 });
-
-      expect(prismaService.soft.user.findMany).toHaveBeenCalledWith(
-        expect.objectContaining({
-          where: expect.objectContaining({
-            roles: expect.objectContaining({
-              some: expect.objectContaining({ roleId: 2 }),
+            userRoles: expect.objectContaining({
+              some: expect.objectContaining({
+                role: expect.objectContaining({ publicId: rolePublicId }),
+              }),
             }),
           }),
-        }),
-      );
-    });
-
-    it("should filter by status when provided", async () => {
-      prismaService.soft.user.findMany.mockResolvedValue(mockUserList);
-      prismaService.soft.user.count.mockResolvedValue(1);
-
-      await service.findAll({ page: 1, limit: 10, status: "ACTIVE" });
-
-      expect(prismaService.soft.user.findMany).toHaveBeenCalledWith(
-        expect.objectContaining({
-          where: expect.objectContaining({ status: "ACTIVE" }),
         }),
       );
     });
   });
 
   describe("findOne", () => {
-    it("should return user with roles", async () => {
-      prismaService.soft.user.findUnique.mockResolvedValue(mockUser);
-
-      const result = await service.findOne(1);
-
-      expect(result).toEqual(mockUser);
-      expect(prismaService.soft.user.findUnique).toHaveBeenCalledWith({
-        where: { id: 1 },
-        include: {
-          UserRole_UserRole_userIdToUser: {
-            include: {
-              Role: {
-                select: {
-                  id: true,
-                  code: true,
-                  name: true,
-                  type: true,
-                  isEnabled: true,
-                },
-              },
+    it("should return user and enabled roles", async () => {
+      const now = new Date();
+      prisma.soft.user.findUnique.mockResolvedValue({
+        id: userInternalId,
+        publicId: userPublicId,
+        email: "test@example.com",
+        name: "Test User",
+        avatar: null,
+        status: "ACTIVE",
+        createdAt: now,
+        updatedAt: now,
+        userRoles: [
+          {
+            role: {
+              publicId: rolePublicId,
+              code: "ADMIN",
+              name: "Administrator",
+              type: RoleType.SYSTEM,
+              isEnabled: true,
+              deletedAt: null,
             },
           },
-        },
+          {
+            role: {
+              publicId: "550e8400-e29b-41d4-a716-446655440003",
+              code: "DISABLED",
+              name: "Disabled",
+              type: RoleType.CUSTOM,
+              isEnabled: false,
+              deletedAt: null,
+            },
+          },
+          {
+            role: {
+              publicId: "550e8400-e29b-41d4-a716-446655440004",
+              code: "DELETED",
+              name: "Deleted",
+              type: RoleType.CUSTOM,
+              isEnabled: true,
+              deletedAt: new Date(),
+            },
+          },
+        ],
+      });
+
+      const result = await service.findOne(userPublicId);
+
+      expect(result).toEqual({
+        id: userPublicId,
+        email: "test@example.com",
+        name: "Test User",
+        avatar: null,
+        status: "ACTIVE",
+        createdAt: now,
+        updatedAt: now,
+        roles: [
+          {
+            id: rolePublicId,
+            code: "ADMIN",
+            name: "Administrator",
+            type: RoleType.SYSTEM,
+            isEnabled: true,
+          },
+        ],
       });
     });
 
-    it("should throw USER_NOT_FOUND if user does not exist", async () => {
-      prismaService.soft.user.findUnique.mockResolvedValue(null);
+    it("should throw USER_NOT_FOUND when missing", async () => {
+      prisma.soft.user.findUnique.mockResolvedValue(null);
 
-      await expect(service.findOne(999)).rejects.toMatchObject({
-        businessCode: ApiErrorCode.USER_NOT_FOUND,
+      await expect(service.findOne(userPublicId)).rejects.toMatchObject({
+        code: ApiErrorCode.USER_NOT_FOUND,
       });
     });
   });
 
   describe("findUserRoles", () => {
-    it("should return filtered user roles", async () => {
-      prismaService.soft.user.findUnique.mockResolvedValue(mockUser);
-      prismaService.userRole.findMany.mockResolvedValue([mockUserRole]);
+    it("should return items with role info", async () => {
+      const grantedAt = new Date();
+      prisma.soft.user.findUnique.mockResolvedValue({ id: userInternalId });
+      prisma.userRole.findMany.mockResolvedValue([
+        {
+          grantedAt,
+          expiresAt: null,
+          role: {
+            publicId: rolePublicId,
+            code: "ADMIN",
+            name: "Administrator",
+            type: RoleType.SYSTEM,
+            isEnabled: true,
+            deletedAt: null,
+          },
+          grantedBy: { publicId: grantedByPublicId, name: "Grantor" },
+        },
+      ]);
 
-      const result = await service.findUserRoles(1);
+      const result = await service.findUserRoles(userPublicId);
 
-      expect(result.data).toHaveLength(1);
-      expect(result.data[0]).toEqual({
-        id: mockUserRole.id,
-        roleId: mockUserRole.Role.id,
-        roleCode: mockUserRole.Role.code,
-        roleName: mockUserRole.Role.name,
-        roleType: mockUserRole.Role.type,
-        grantedAt: mockUserRole.grantedAt,
-        expiresAt: mockUserRole.expiresAt,
-        grantedBy: mockUserRole.User_UserRole_grantedByToUser,
+      expect(result).toEqual({
+        items: [
+          {
+            role: {
+              id: rolePublicId,
+              code: "ADMIN",
+              name: "Administrator",
+              type: RoleType.SYSTEM,
+              isEnabled: true,
+            },
+            grantedAt,
+            expiresAt: null,
+            grantedBy: { id: grantedByPublicId, name: "Grantor" },
+          },
+        ],
+        pagination: { total: 1, page: 1, pageSize: 1 },
       });
     });
 
-    it("should filter out disabled roles", async () => {
-      prismaService.soft.user.findUnique.mockResolvedValue(mockUser);
-      prismaService.userRole.findMany.mockResolvedValue([
-        mockUserRole,
+    it("should filter out disabled/deleted roles", async () => {
+      prisma.soft.user.findUnique.mockResolvedValue({ id: userInternalId });
+      prisma.userRole.findMany.mockResolvedValue([
         {
-          ...mockUserRole,
-          id: 2,
-          Role: { ...mockUserRole.Role, isEnabled: false },
+          grantedAt: new Date(),
+          expiresAt: null,
+          role: {
+            publicId: rolePublicId,
+            code: "ADMIN",
+            name: "Administrator",
+            type: RoleType.SYSTEM,
+            isEnabled: true,
+            deletedAt: null,
+          },
+          grantedBy: null,
+        },
+        {
+          grantedAt: new Date(),
+          expiresAt: null,
+          role: {
+            publicId: "550e8400-e29b-41d4-a716-446655440005",
+            code: "DISABLED",
+            name: "Disabled",
+            type: RoleType.CUSTOM,
+            isEnabled: false,
+            deletedAt: null,
+          },
+          grantedBy: null,
+        },
+        {
+          grantedAt: new Date(),
+          expiresAt: null,
+          role: {
+            publicId: "550e8400-e29b-41d4-a716-446655440006",
+            code: "DELETED",
+            name: "Deleted",
+            type: RoleType.CUSTOM,
+            isEnabled: true,
+            deletedAt: new Date(),
+          },
+          grantedBy: null,
         },
       ]);
 
-      const result = await service.findUserRoles(1);
-
-      expect(result.data).toHaveLength(1);
+      const result = await service.findUserRoles(userPublicId);
+      expect(result.items).toHaveLength(1);
     });
 
-    it("should filter out deleted roles", async () => {
-      prismaService.soft.user.findUnique.mockResolvedValue(mockUser);
-      prismaService.userRole.findMany.mockResolvedValue([
-        mockUserRole,
-        {
-          ...mockUserRole,
-          id: 2,
-          Role: { ...mockUserRole.Role, deletedAt: new Date() },
-        },
-      ]);
+    it("should throw USER_NOT_FOUND when missing", async () => {
+      prisma.soft.user.findUnique.mockResolvedValue(null);
 
-      const result = await service.findUserRoles(1);
-
-      expect(result.data).toHaveLength(1);
-    });
-
-    it("should throw USER_NOT_FOUND if user does not exist", async () => {
-      prismaService.soft.user.findUnique.mockResolvedValue(null);
-
-      await expect(service.findUserRoles(999)).rejects.toMatchObject({
-        businessCode: ApiErrorCode.USER_NOT_FOUND,
+      await expect(service.findUserRoles(userPublicId)).rejects.toMatchObject({
+        code: ApiErrorCode.USER_NOT_FOUND,
       });
     });
   });
 
   describe("assignRole", () => {
-    it("should assign role to user", async () => {
-      prismaService.soft.user.findUnique.mockResolvedValue(mockUser);
-      prismaService.soft.role.findUnique.mockResolvedValue(mockRole);
-      prismaService.userRole.findUnique.mockResolvedValue(null);
-      prismaService.userRole.create.mockResolvedValue({
-        id: 1,
-        userId: 1,
-        roleId: 2,
-        grantedBy: null,
-        grantedAt: new Date(),
-        expiresAt: null,
-        Role: {
-          id: 2,
-          code: "ADMIN",
-          name: "Administrator",
+    it("should assign role and return message", async () => {
+      const grantedAt = new Date();
+      prisma.soft.user.findUnique.mockResolvedValue({ id: userInternalId });
+      prisma.soft.role.findUnique.mockResolvedValue({
+        id: roleInternalId,
+        publicId: rolePublicId,
+        code: "ADMIN",
+        name: "Administrator",
+        isEnabled: true,
+      });
+      prisma.userRole.findUnique.mockResolvedValue(null);
+      prisma.userRole.create.mockResolvedValue({ grantedAt, expiresAt: null });
+
+      const result = await service.assignRole(userPublicId, {
+        roleId: rolePublicId,
+      });
+
+      expect(result).toEqual({
+        message: "Role assigned successfully",
+        userRole: {
+          roleId: rolePublicId,
+          roleCode: "ADMIN",
+          roleName: "Administrator",
+          grantedAt,
+          expiresAt: null,
         },
       });
-
-      const result = await service.assignRole(1, { roleId: 2 });
-
-      expect(result.message).toBe("Role assigned successfully");
-      expect(result.userRole.roleCode).toBe("ADMIN");
     });
 
-    it("should assign role with expiration", async () => {
-      const expiresAt = "2025-12-31T23:59:59.000Z";
-      prismaService.soft.user.findUnique.mockResolvedValue(mockUser);
-      prismaService.soft.role.findUnique.mockResolvedValue(mockRole);
-      prismaService.userRole.findUnique.mockResolvedValue(null);
-      prismaService.userRole.create.mockResolvedValue({
-        id: 1,
-        userId: 1,
-        roleId: 2,
-        grantedBy: null,
-        grantedAt: new Date(),
-        expiresAt: new Date(expiresAt),
-        Role: {
-          id: 2,
-          code: "ADMIN",
-          name: "Administrator",
-        },
+    it("should throw ROLE_ALREADY_ASSIGNED when exists", async () => {
+      prisma.soft.user.findUnique.mockResolvedValue({ id: userInternalId });
+      prisma.soft.role.findUnique.mockResolvedValue({
+        id: roleInternalId,
+        publicId: rolePublicId,
+        code: "ADMIN",
+        name: "Administrator",
+        isEnabled: true,
       });
-
-      const result = await service.assignRole(1, { roleId: 2, expiresAt });
-
-      expect(result.message).toBe("Role assigned successfully");
-      expect(prismaService.userRole.create).toHaveBeenCalledWith(
-        expect.objectContaining({
-          data: expect.objectContaining({
-            expiresAt: new Date(expiresAt),
-          }),
-        }),
-      );
-    });
-
-    it("should throw USER_NOT_FOUND if user does not exist", async () => {
-      prismaService.soft.user.findUnique.mockResolvedValue(null);
+      prisma.userRole.findUnique.mockResolvedValue({ id: 999 });
 
       await expect(
-        service.assignRole(999, { roleId: 2 }),
-      ).rejects.toMatchObject({
-        businessCode: ApiErrorCode.USER_NOT_FOUND,
-      });
-    });
-
-    it("should throw ROLE_NOT_FOUND if role does not exist", async () => {
-      prismaService.soft.user.findUnique.mockResolvedValue(mockUser);
-      prismaService.soft.role.findUnique.mockResolvedValue(null);
-
-      await expect(
-        service.assignRole(1, { roleId: 999 }),
-      ).rejects.toMatchObject({
-        businessCode: ApiErrorCode.ROLE_NOT_FOUND,
-      });
-    });
-
-    it("should throw ROLE_NOT_FOUND if role is disabled", async () => {
-      prismaService.soft.user.findUnique.mockResolvedValue(mockUser);
-      prismaService.soft.role.findUnique.mockResolvedValue({
-        ...mockRole,
-        isEnabled: false,
-      });
-
-      await expect(service.assignRole(1, { roleId: 2 })).rejects.toMatchObject({
-        businessCode: ApiErrorCode.ROLE_NOT_FOUND,
-      });
-    });
-
-    it("should throw ROLE_ALREADY_ASSIGNED if role already assigned", async () => {
-      prismaService.soft.user.findUnique.mockResolvedValue(mockUser);
-      prismaService.soft.role.findUnique.mockResolvedValue(mockRole);
-      prismaService.userRole.findUnique.mockResolvedValue({
-        id: 1,
-        userId: 1,
-        roleId: 2,
-        grantedBy: null,
-        grantedAt: new Date(),
-        expiresAt: null,
-      });
-
-      await expect(service.assignRole(1, { roleId: 2 })).rejects.toMatchObject({
-        businessCode: ApiErrorCode.ROLE_ALREADY_ASSIGNED,
-      });
+        service.assignRole(userPublicId, { roleId: rolePublicId }),
+      ).rejects.toMatchObject({ code: ApiErrorCode.ROLE_ALREADY_ASSIGNED });
     });
   });
 
   describe("assignRoles", () => {
     it("should replace all roles for user", async () => {
-      prismaService.soft.user.findUnique.mockResolvedValue(mockUser);
-      prismaService.soft.role.findMany.mockResolvedValue([
-        mockRole,
-        { ...mockRole, id: 3, code: "MANAGER" },
+      prisma.soft.user.findUnique.mockResolvedValue({ id: userInternalId });
+      prisma.soft.role.findMany.mockResolvedValue([
+        { id: 10, publicId: "550e8400-e29b-41d4-a716-446655440010" },
+        { id: 11, publicId: "550e8400-e29b-41d4-a716-446655440011" },
       ]);
 
-      const result = await service.assignRoles(1, [2, 3]);
+      const tx = {
+        userRole: {
+          deleteMany: jest.fn(),
+          createMany: jest.fn(),
+        },
+      };
+      prisma.$transaction.mockImplementation(async (fn) => fn(tx as never));
 
-      expect(result.message).toBe("Roles assigned successfully");
-      expect(prismaService.$transaction).toHaveBeenCalled();
+      const result = await service.assignRoles(userPublicId, [
+        "550e8400-e29b-41d4-a716-446655440010",
+        "550e8400-e29b-41d4-a716-446655440011",
+      ]);
+
+      expect(result).toEqual({ message: "Roles assigned successfully" });
+      expect(prisma.$transaction).toHaveBeenCalled();
+      expect(tx.userRole.deleteMany).toHaveBeenCalledWith({
+        where: { userId: userInternalId },
+      });
+      expect(tx.userRole.createMany).toHaveBeenCalled();
     });
 
-    it("should throw USER_NOT_FOUND if user does not exist", async () => {
-      prismaService.soft.user.findUnique.mockResolvedValue(null);
+    it("should throw ROLE_NOT_FOUND when some roles are missing/disabled", async () => {
+      prisma.soft.user.findUnique.mockResolvedValue({ id: userInternalId });
+      prisma.soft.role.findMany.mockResolvedValue([
+        { id: 10, publicId: "550e8400-e29b-41d4-a716-446655440010" },
+      ]);
 
-      await expect(service.assignRoles(999, [2, 3])).rejects.toMatchObject({
-        businessCode: ApiErrorCode.USER_NOT_FOUND,
-      });
-    });
-
-    it("should throw ROLE_NOT_FOUND if some roles do not exist", async () => {
-      prismaService.soft.user.findUnique.mockResolvedValue(mockUser);
-      prismaService.soft.role.findMany.mockResolvedValue([mockRole]);
-
-      await expect(service.assignRoles(1, [2, 999])).rejects.toMatchObject({
-        businessCode: ApiErrorCode.ROLE_NOT_FOUND,
-      });
-    });
-
-    it("should throw ROLE_NOT_FOUND if some roles are disabled", async () => {
-      prismaService.soft.user.findUnique.mockResolvedValue(mockUser);
-      // findMany only returns enabled roles, so disabled ones won't be found
-      prismaService.soft.role.findMany.mockResolvedValue([mockRole]);
-
-      await expect(service.assignRoles(1, [2, 3])).rejects.toMatchObject({
-        businessCode: ApiErrorCode.ROLE_NOT_FOUND,
-      });
+      await expect(
+        service.assignRoles(userPublicId, [
+          "550e8400-e29b-41d4-a716-446655440010",
+          "550e8400-e29b-41d4-a716-446655440011",
+        ]),
+      ).rejects.toMatchObject({ code: ApiErrorCode.ROLE_NOT_FOUND });
     });
   });
 
   describe("removeRole", () => {
-    it("should remove role from user", async () => {
-      prismaService.soft.user.findUnique.mockResolvedValue(mockUser);
-      prismaService.userRole.findUnique.mockResolvedValue({
-        id: 1,
-        userId: 1,
-        roleId: 2,
-        grantedBy: null,
-        grantedAt: new Date(),
-        expiresAt: null,
-        Role: { code: "ADMIN" },
+    it("should remove role and return message", async () => {
+      prisma.soft.user.findUnique.mockResolvedValue({ id: userInternalId });
+      prisma.soft.role.findUnique.mockResolvedValue({
+        id: roleInternalId,
+        code: "ADMIN",
       });
-      prismaService.userRole.delete.mockResolvedValue({
-        id: 1,
-        userId: 1,
-        roleId: 2,
-        grantedBy: null,
-        grantedAt: new Date(),
-        expiresAt: null,
-      });
+      prisma.userRole.findUnique.mockResolvedValue({ id: 123 });
+      prisma.userRole.delete.mockResolvedValue({ id: 123 });
 
-      const result = await service.removeRole(1, 2);
+      const result = await service.removeRole(userPublicId, rolePublicId);
 
-      expect(result.message).toBe("Role removed successfully");
-      expect(prismaService.userRole.delete).toHaveBeenCalledWith({
+      expect(result).toEqual({ message: "Role removed successfully" });
+      expect(prisma.userRole.delete).toHaveBeenCalledWith({
         where: {
           userId_roleId: {
-            userId: 1,
-            roleId: 2,
+            userId: userInternalId,
+            roleId: roleInternalId,
           },
         },
-      });
-    });
-
-    it("should throw USER_NOT_FOUND if user does not exist", async () => {
-      prismaService.soft.user.findUnique.mockResolvedValue(null);
-
-      await expect(service.removeRole(999, 2)).rejects.toMatchObject({
-        businessCode: ApiErrorCode.USER_NOT_FOUND,
-      });
-    });
-
-    it("should throw ROLE_NOT_FOUND if role not assigned to user", async () => {
-      prismaService.soft.user.findUnique.mockResolvedValue(mockUser);
-      prismaService.userRole.findUnique.mockResolvedValue(null);
-
-      await expect(service.removeRole(1, 999)).rejects.toMatchObject({
-        businessCode: ApiErrorCode.ROLE_NOT_FOUND,
       });
     });
   });

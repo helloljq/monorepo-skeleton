@@ -7,218 +7,300 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-model AuditLog {
-  id          Int      @id @default(autoincrement())
-  action      String
-  operation   String
-  entityType  String
-  entityId    String
-  actorUserId Int?
-  ip          String?
-  userAgent   String?
-  requestId   String?
-  before      Json?
-  after       Json?
-  createdAt   DateTime @default(now())
-  User        User?    @relation(fields: [actorUserId], references: [id])
+// NOTE:
+// - Database objects use snake_case (R1) and plural table names (R2).
+// - Internal PK remains autoincrement int for joins/index locality.
+// - External ID uses public_id UUID (ADR-ID-001 / R3.1).
 
-  @@index([actorUserId, createdAt])
-  @@index([createdAt])
-  @@index([entityType, entityId, createdAt])
+model AuditLog {
+  id        Int    @id @default(autoincrement())
+  publicId  String @unique @default(uuid()) @map("public_id") @db.Uuid
+
+  action     String
+  operation  String
+  entityType String @map("entity_type")
+  entityId   String @map("entity_id")
+
+  actorUserId Int?   @map("actor_user_id")
+  ip          String?
+  userAgent   String? @map("user_agent")
+  requestId   String? @map("request_id")
+
+  before Json?
+  after  Json?
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  actorUser User? @relation("AuditLogActorUser", fields: [actorUserId], references: [id])
+
+  @@map("audit_logs")
+  @@index([actorUserId, createdAt], map: "idx_audit_logs_actor_user_id_created_at")
+  @@index([createdAt], map: "idx_audit_logs_created_at")
+  @@index([entityType, entityId, createdAt], map: "idx_audit_logs_entity_type_entity_id_created_at")
 }
 
 model ConfigHistory {
-  id          Int              @id @default(autoincrement())
-  configId    Int
-  version     Int
-  value       Json
-  configHash  String           @db.VarChar(64)
-  changeType  ConfigChangeType
-  changeNote  String?          @db.VarChar(500)
-  changedById Int?
-  createdAt   DateTime         @default(now())
-  User        User?            @relation(fields: [changedById], references: [id])
-  ConfigItem  ConfigItem       @relation(fields: [configId], references: [id])
+  id Int @id @default(autoincrement())
 
-  @@index([configId])
-  @@index([configId, version])
+  configId Int @map("config_id")
+  version  Int
+  value    Json
+
+  configHash String           @db.VarChar(64) @map("config_hash")
+  changeType ConfigChangeType @map("change_type")
+  changeNote String?          @db.VarChar(500) @map("change_note")
+
+  changedById Int? @map("changed_by_id")
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  changedBy  User?      @relation("ConfigHistoryChangedBy", fields: [changedById], references: [id])
+  configItem ConfigItem @relation(fields: [configId], references: [id])
+
+  @@map("config_histories")
+  @@index([configId], map: "idx_config_histories_config_id")
+  @@index([configId, version], map: "idx_config_histories_config_id_version")
 }
 
 model ConfigItem {
-  id              Int             @id @default(autoincrement())
-  namespaceId     Int
-  key             String          @db.VarChar(100)
-  value           Json
-  valueType       ConfigValueType @default(JSON)
-  description     String?         @db.VarChar(500)
-  isEncrypted     Boolean         @default(false)
-  isPublic        Boolean         @default(false)
-  jsonSchema      Json?
-  version         Int             @default(1)
-  configHash      String          @db.VarChar(64)
-  isEnabled       Boolean         @default(true)
-  deletedAt       DateTime?
-  deletedById     Int?
-  deleteReason    String?         @db.VarChar(500)
-  createdAt       DateTime        @default(now())
-  updatedAt       DateTime        @updatedAt
-  ConfigHistory   ConfigHistory[]
-  User            User?           @relation(fields: [deletedById], references: [id])
-  ConfigNamespace ConfigNamespace @relation(fields: [namespaceId], references: [id])
+  id       Int    @id @default(autoincrement())
+  publicId String @unique @default(uuid()) @map("public_id") @db.Uuid
 
-  @@unique([namespaceId, key])
-  @@index([namespaceId])
-  @@index([namespaceId, isEnabled])
+  namespaceId Int    @map("namespace_id")
+  key         String @db.VarChar(100)
+  value       Json
+  valueType   ConfigValueType @default(JSON) @map("value_type")
+
+  description String? @db.VarChar(500)
+  isEncrypted Boolean @default(false) @map("is_encrypted")
+  isPublic    Boolean @default(false) @map("is_public")
+  jsonSchema  Json?   @map("json_schema")
+
+  version    Int    @default(1)
+  configHash String @db.VarChar(64) @map("config_hash")
+  isEnabled  Boolean @default(true) @map("is_enabled")
+
+  deletedAt   DateTime? @map("deleted_at") @db.Timestamptz
+  deletedById Int?      @map("deleted_by_id")
+  deleteReason String?  @db.VarChar(500) @map("delete_reason")
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  namespace ConfigNamespace @relation(fields: [namespaceId], references: [id])
+  deletedBy User?           @relation("ConfigItemDeletedBy", fields: [deletedById], references: [id])
+  history   ConfigHistory[]
+
+  @@map("config_items")
+  @@unique([namespaceId, key], map: "uniq_config_items_namespace_id_key")
+  @@index([namespaceId], map: "idx_config_items_namespace_id")
+  @@index([namespaceId, isEnabled], map: "idx_config_items_namespace_id_is_enabled")
 }
 
 model ConfigNamespace {
-  id           Int          @id @default(autoincrement())
-  name         String       @unique @db.VarChar(50)
-  displayName  String       @db.VarChar(100)
-  description  String?      @db.VarChar(500)
-  isEnabled    Boolean      @default(true)
-  deletedAt    DateTime?
-  deletedById  Int?
-  deleteReason String?      @db.VarChar(500)
-  createdAt    DateTime     @default(now())
-  updatedAt    DateTime     @updatedAt
-  ConfigItem   ConfigItem[]
-  User         User?        @relation(fields: [deletedById], references: [id])
+  id       Int    @id @default(autoincrement())
+  publicId String @unique @default(uuid()) @map("public_id") @db.Uuid
 
-  @@index([isEnabled])
+  name        String  @unique @db.VarChar(50)
+  displayName String  @db.VarChar(100) @map("display_name")
+  description String? @db.VarChar(500)
+
+  isEnabled Boolean @default(true) @map("is_enabled")
+
+  deletedAt   DateTime? @map("deleted_at") @db.Timestamptz
+  deletedById Int?      @map("deleted_by_id")
+  deleteReason String?  @db.VarChar(500) @map("delete_reason")
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  deletedBy User?       @relation("ConfigNamespaceDeletedBy", fields: [deletedById], references: [id])
+  items     ConfigItem[]
+
+  @@map("config_namespaces")
+  @@index([isEnabled], map: "idx_config_namespaces_is_enabled")
 }
 
-/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
 model Dictionary {
-  id           Int       @id @default(autoincrement())
-  type         String    @db.VarChar(50)
-  key          String    @db.VarChar(100)
-  value        Json
-  label        String    @db.VarChar(100)
-  description  String?   @db.VarChar(500)
-  sort         Int       @default(0)
-  isEnabled    Boolean   @default(true)
-  deletedAt    DateTime?
-  deletedById  Int?
-  deleteReason String?   @db.VarChar(500)
-  createdAt    DateTime  @default(now())
-  updatedAt    DateTime  @updatedAt
-  version      String?   @db.VarChar(20)
-  configHash   String?   @db.VarChar(64)
-  User         User?     @relation(fields: [deletedById], references: [id])
+  id       Int    @id @default(autoincrement())
+  publicId String @unique @default(uuid()) @map("public_id") @db.Uuid
 
-  @@unique([type, key])
-  @@index([type])
-  @@index([type, isEnabled])
+  type  String @db.VarChar(50)
+  key   String @db.VarChar(100)
+  value Json
+
+  label       String  @db.VarChar(100)
+  description String? @db.VarChar(500)
+  sort        Int     @default(0)
+
+  isEnabled Boolean @default(true) @map("is_enabled")
+
+  deletedAt   DateTime? @map("deleted_at") @db.Timestamptz
+  deletedById Int?      @map("deleted_by_id")
+  deleteReason String?  @db.VarChar(500) @map("delete_reason")
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  version    String? @db.VarChar(20)
+  configHash String? @db.VarChar(64) @map("config_hash")
+
+  deletedBy User? @relation("DictionaryDeletedBy", fields: [deletedById], references: [id])
+
+  @@map("dictionaries")
+  @@unique([type, key], map: "uniq_dictionaries_type_key")
+  @@index([type], map: "idx_dictionaries_type")
+  @@index([type, isEnabled], map: "idx_dictionaries_type_is_enabled")
 }
 
 model Permission {
-  id             Int              @id @default(autoincrement())
-  code           String           @unique @db.VarChar(100)
-  name           String           @db.VarChar(100)
-  description    String?          @db.VarChar(500)
-  resource       String           @db.VarChar(50)
-  action         String           @db.VarChar(50)
-  module         String?          @db.VarChar(50)
-  isEnabled      Boolean          @default(true)
-  createdAt      DateTime         @default(now())
-  updatedAt      DateTime         @updatedAt
-  RolePermission RolePermission[]
+  id       Int    @id @default(autoincrement())
+  publicId String @unique @default(uuid()) @map("public_id") @db.Uuid
 
-  @@index([module])
-  @@index([resource, action])
+  code        String  @unique @db.VarChar(100)
+  name        String  @db.VarChar(100)
+  description String? @db.VarChar(500)
+  resource    String  @db.VarChar(50)
+  action      String  @db.VarChar(50)
+  module      String? @db.VarChar(50)
+
+  isEnabled Boolean @default(true) @map("is_enabled")
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  rolePermissions RolePermission[]
+
+  @@map("permissions")
+  @@index([module], map: "idx_permissions_module")
+  @@index([resource, action], map: "idx_permissions_resource_action")
 }
 
 model Role {
-  id             Int              @id @default(autoincrement())
-  code           String           @unique @db.VarChar(50)
-  name           String           @db.VarChar(100)
-  description    String?          @db.VarChar(500)
-  type           RoleType         @default(CUSTOM)
-  isEnabled      Boolean          @default(true)
-  createdAt      DateTime         @default(now())
-  updatedAt      DateTime         @updatedAt
-  deletedAt      DateTime?
-  deletedById    Int?
-  deleteReason   String?          @db.VarChar(500)
-  User           User?            @relation(fields: [deletedById], references: [id])
-  RolePermission RolePermission[]
-  UserRole       UserRole[]
+  id       Int    @id @default(autoincrement())
+  publicId String @unique @default(uuid()) @map("public_id") @db.Uuid
+
+  code        String  @unique @db.VarChar(50)
+  name        String  @db.VarChar(100)
+  description String? @db.VarChar(500)
+
+  type      RoleType @default(CUSTOM)
+  isEnabled Boolean  @default(true) @map("is_enabled")
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  deletedAt   DateTime? @map("deleted_at") @db.Timestamptz
+  deletedById Int?      @map("deleted_by_id")
+  deleteReason String?  @db.VarChar(500) @map("delete_reason")
+
+  deletedBy       User?           @relation("RoleDeletedBy", fields: [deletedById], references: [id])
+  rolePermissions RolePermission[]
+  userRoles       UserRole[]
+
+  @@map("roles")
 }
 
 model RolePermission {
-  id           Int        @id @default(autoincrement())
-  roleId       Int
-  permissionId Int
-  grantedBy    Int?
-  grantedAt    DateTime   @default(now())
-  Permission   Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
-  Role         Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  id Int @id @default(autoincrement())
 
-  @@unique([roleId, permissionId])
-  @@index([permissionId])
-  @@index([roleId])
+  roleId       Int @map("role_id")
+  permissionId Int @map("permission_id")
+  grantedById  Int? @map("granted_by_id")
+  grantedAt    DateTime @default(now()) @map("granted_at") @db.Timestamptz
+
+  role       Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permission Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+  grantedBy  User?      @relation("RolePermissionGrantedBy", fields: [grantedById], references: [id])
+
+  @@map("role_permissions")
+  @@unique([roleId, permissionId], map: "uniq_role_permissions_role_id_permission_id")
+  @@index([permissionId], map: "idx_role_permissions_permission_id")
+  @@index([roleId], map: "idx_role_permissions_role_id")
 }
 
 model User {
-  id                                Int               @id @default(autoincrement())
-  email                             String
-  name                              String?
-  password                          String
-  deletedAt                         DateTime?
-  createdAt                         DateTime          @default(now())
-  updatedAt                         DateTime          @updatedAt
-  deletedById                       Int?
-  deleteReason                      String?
-  avatar                            String?           @db.VarChar(500)
-  status                            UserStatus        @default(ACTIVE)
-  AuditLog                          AuditLog[]
-  ConfigHistory                     ConfigHistory[]
-  ConfigItem                        ConfigItem[]
-  ConfigNamespace                   ConfigNamespace[]
-  Dictionary                        Dictionary[]
-  Role                              Role[]
-  User                              User?             @relation("UserToUser", fields: [deletedById], references: [id])
-  other_User                        User[]            @relation("UserToUser")
-  UserIdentity                      UserIdentity[]
-  UserRole_UserRole_grantedByToUser UserRole[]        @relation("UserRole_grantedByToUser")
-  UserRole_UserRole_userIdToUser    UserRole[]        @relation("UserRole_userIdToUser")
+  id       Int    @id @default(autoincrement())
+  publicId String @unique @default(uuid()) @map("public_id") @db.Uuid
 
-  @@unique([email, deletedAt])
+  email    String
+  name     String?
+  password String
+  avatar   String? @db.VarChar(500)
+  status   UserStatus @default(ACTIVE)
+
+  deletedAt   DateTime? @map("deleted_at") @db.Timestamptz
+  deletedById Int?      @map("deleted_by_id")
+  deleteReason String?  @db.VarChar(500) @map("delete_reason")
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  deletedBy    User?  @relation("UserDeletedBy", fields: [deletedById], references: [id])
+  deletedUsers User[] @relation("UserDeletedBy")
+
+  identities UserIdentity[] @relation("UserIdentities")
+  userRoles  UserRole[]     @relation("UserUserRoles")
+
+  grantedUserRoles UserRole[] @relation("UserRoleGrantedBy")
+  grantedRolePermissions RolePermission[] @relation("RolePermissionGrantedBy")
+
+  auditLogs AuditLog[] @relation("AuditLogActorUser")
+
+  deletedRoles          Role[]          @relation("RoleDeletedBy")
+  deletedDictionaries   Dictionary[]    @relation("DictionaryDeletedBy")
+  deletedConfigNamespaces ConfigNamespace[] @relation("ConfigNamespaceDeletedBy")
+  deletedConfigItems     ConfigItem[]      @relation("ConfigItemDeletedBy")
+
+  changedConfigHistories ConfigHistory[] @relation("ConfigHistoryChangedBy")
+
+  @@map("users")
+  @@unique([email, deletedAt], map: "uniq_users_email_deleted_at")
 }
 
 model UserIdentity {
-  id            Int              @id @default(autoincrement())
-  userId        Int
-  provider      IdentityProvider
-  providerId    String           @db.VarChar(255)
-  credential    String?          @db.VarChar(500)
-  credentialExp DateTime?
-  metadata      Json?
-  verified      Boolean          @default(false)
-  verifiedAt    DateTime?
-  createdAt     DateTime         @default(now())
-  updatedAt     DateTime         @updatedAt
-  User          User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id       Int    @id @default(autoincrement())
+  publicId String @unique @default(uuid()) @map("public_id") @db.Uuid
 
-  @@unique([provider, providerId])
-  @@index([userId])
+  userId     Int              @map("user_id")
+  provider   IdentityProvider
+  providerId String           @db.VarChar(255) @map("provider_id")
+
+  credential    String?  @db.VarChar(500)
+  credentialExp DateTime? @map("credential_exp") @db.Timestamptz
+  metadata      Json?
+
+  verified   Boolean  @default(false)
+  verifiedAt DateTime? @map("verified_at") @db.Timestamptz
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  user User @relation("UserIdentities", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("user_identities")
+  @@unique([provider, providerId], map: "uniq_user_identities_provider_provider_id")
+  @@index([userId], map: "idx_user_identities_user_id")
 }
 
 model UserRole {
-  id                            Int       @id @default(autoincrement())
-  userId                        Int
-  roleId                        Int
-  grantedBy                     Int?
-  grantedAt                     DateTime  @default(now())
-  expiresAt                     DateTime?
-  User_UserRole_grantedByToUser User?     @relation("UserRole_grantedByToUser", fields: [grantedBy], references: [id])
-  Role                          Role      @relation(fields: [roleId], references: [id], onDelete: Cascade)
-  User_UserRole_userIdToUser    User      @relation("UserRole_userIdToUser", fields: [userId], references: [id], onDelete: Cascade)
+  id Int @id @default(autoincrement())
 
-  @@unique([userId, roleId])
-  @@index([roleId])
-  @@index([userId])
+  userId      Int  @map("user_id")
+  roleId      Int  @map("role_id")
+  grantedById Int? @map("granted_by_id")
+
+  grantedAt DateTime  @default(now()) @map("granted_at") @db.Timestamptz
+  expiresAt DateTime? @map("expires_at") @db.Timestamptz
+
+  user      User  @relation("UserUserRoles", fields: [userId], references: [id], onDelete: Cascade)
+  role      Role  @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  grantedBy User? @relation("UserRoleGrantedBy", fields: [grantedById], references: [id])
+
+  @@map("user_roles")
+  @@unique([userId, roleId], map: "uniq_user_roles_user_id_role_id")
+  @@index([roleId], map: "idx_user_roles_role_id")
+  @@index([userId], map: "idx_user_roles_user_id")
 }
 
 enum ConfigChangeType {
@@ -226,6 +308,8 @@ enum ConfigChangeType {
   UPDATE
   DELETE
   ROLLBACK
+
+  @@map("config_change_type")
 }
 
 enum ConfigValueType {
@@ -233,6 +317,8 @@ enum ConfigValueType {
   STRING
   NUMBER
   BOOLEAN
+
+  @@map("config_value_type")
 }
 
 enum IdentityProvider {
@@ -242,15 +328,21 @@ enum IdentityProvider {
   WECHAT_UNION
   WECHAT_MINI
   WECHAT_MP
+
+  @@map("identity_provider")
 }
 
 enum RoleType {
   SYSTEM
   CUSTOM
+
+  @@map("role_type")
 }
 
 enum UserStatus {
   ACTIVE
   DISABLED
   PENDING
+
+  @@map("user_status")
 }

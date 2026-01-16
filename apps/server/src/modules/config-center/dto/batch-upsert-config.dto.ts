@@ -31,7 +31,7 @@ export interface BatchOperationResult {
   key: string;
   success: boolean;
   error?: string;
-  data?: any;
+  data?: unknown;
 }
 
 /**

@@ -92,12 +92,12 @@ export class PermissionCacheService {
    * 从数据库加载角色权限
    */
   private async loadRolePermissionsFromDb(roleCode: string): Promise<string[]> {
-    const role = await this.prisma.role.findUnique({
-      where: { code: roleCode },
+    const role = await this.prisma.soft.role.findFirst({
+      where: { code: roleCode, isEnabled: true },
       include: {
-        RolePermission: {
+        rolePermissions: {
           include: {
-            Permission: {
+            permission: {
               select: { code: true, isEnabled: true },
             },
           },
@@ -110,9 +110,9 @@ export class PermissionCacheService {
     }
 
     // 只返回已启用的权限
-    return role.RolePermission.filter((rp) => rp.Permission.isEnabled).map(
-      (rp) => rp.Permission.code,
-    );
+    return role.rolePermissions
+      .filter((rp) => rp.permission.isEnabled)
+      .map((rp) => rp.permission.code);
   }
 
   /**

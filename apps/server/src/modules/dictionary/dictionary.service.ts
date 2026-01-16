@@ -15,6 +15,21 @@ import {
   UpdateDictionaryDto,
 } from "./dto";
 
+type DictionaryItem = {
+  id: string;
+  type: string;
+  key: string;
+  value: Prisma.JsonValue;
+  label: string;
+  description: string | null;
+  sort: number;
+  isEnabled: boolean;
+  version: string | null;
+  configHash: string | null;
+  createdAt: Date;
+  updatedAt: Date;
+};
+
 @Injectable()
 export class DictionaryService {
   private readonly logger = new Logger(DictionaryService.name);
@@ -30,8 +45,9 @@ export class DictionaryService {
    * 获取字典列表（分页）
    */
   async findAll(query: QueryDictionaryDto) {
-    const { page, limit, type, isEnabled } = query;
-    const skip = (page - 1) * limit;
+    const { page, pageSize: rawPageSize, limit, type, isEnabled } = query;
+    const pageSize = rawPageSize ?? limit ?? 10;
+    const skip = (page - 1) * pageSize;
 
     const where = {
       ...(type && { type }),
@@ -42,19 +58,18 @@ export class DictionaryService {
       this.prisma.soft.dictionary.findMany({
         where,
         skip,
-        take: limit,
+        take: pageSize,
         orderBy: [{ type: "asc" }, { sort: "asc" }, { createdAt: "desc" }],
       }),
       this.prisma.soft.dictionary.count({ where }),
     ]);
 
     return {
-      data,
-      meta: {
+      items: data.map((dict) => this.toDictionaryItem(dict)),
+      pagination: {
         total,
         page,
-        limit,
-        totalPages: Math.ceil(total / limit),
+        pageSize,
       },
     };
   }
@@ -66,7 +81,7 @@ export class DictionaryService {
   async getMetaByType(params: GetByTypeDto & { type: string }) {
     const { type, isEnabled } = params;
 
-    const data = await this.prisma.soft.dictionary.findMany({
+    return this.prisma.soft.dictionary.findMany({
       where: {
         type,
         ...(isEnabled !== undefined && { isEnabled }),
@@ -78,52 +93,38 @@ export class DictionaryService {
       },
       orderBy: [{ sort: "asc" }, { createdAt: "desc" }],
     });
-
-    return {
-      data,
-      meta: {
-        total: data.length,
-        page: 1,
-        limit: data.length,
-        totalPages: 1,
-      },
-    };
   }
 
   /**
    * 按类型获取字典列表（带缓存）
-   * 前端最常用接口
+   * 前端最常用接口（非分页，直接返回数组）
    */
   async findByType(params: GetByTypeDto & { type: string }) {
     const { type, isEnabled } = params;
-    const cacheKey = `${this.CACHE_PREFIX}${type}:${isEnabled ? "enabled" : "all"}`;
+    // Cache key must distinguish `isEnabled=false` from "not specified".
+    const keyScope =
+      isEnabled === true ? "enabled" : isEnabled === false ? "disabled" : "all";
+    const cacheKey = `${this.CACHE_PREFIX}${type}:${keyScope}`;
 
     try {
-      // 1. 尝试从缓存获取
       const cached = await this.redis.get(cacheKey);
       if (cached) {
         const parsedCache = JSON.parse(cached) as unknown;
-        // 兼容旧缓存格式（数组）和新缓存格式（带 meta）
+
+        // New format: array
         if (Array.isArray(parsedCache)) {
-          return {
-            data: parsedCache,
-            meta: {
-              total: parsedCache.length,
-              page: 1,
-              limit: parsedCache.length,
-              totalPages: 1,
-            },
-          };
+          return parsedCache as DictionaryItem[];
         }
-        return parsedCache as {
-          data: unknown[];
-          meta: {
-            total: number;
-            page: number;
-            limit: number;
-            totalPages: number;
-          };
-        };
+
+        // Legacy format: { data, meta }
+        if (
+          parsedCache &&
+          typeof parsedCache === "object" &&
+          "data" in parsedCache &&
+          Array.isArray((parsedCache as { data?: unknown }).data)
+        ) {
+          return (parsedCache as { data: unknown[] }).data as DictionaryItem[];
+        }
       }
     } catch (error) {
       this.logger.warn(
@@ -132,7 +133,6 @@ export class DictionaryService {
       );
     }
 
-    // 2. 从数据库加载
     const data = await this.prisma.soft.dictionary.findMany({
       where: {
         type,
@@ -141,17 +141,8 @@ export class DictionaryService {
       orderBy: [{ sort: "asc" }, { createdAt: "desc" }],
     });
 
-    const result = {
-      data,
-      meta: {
-        total: data.length,
-        page: 1,
-        limit: data.length,
-        totalPages: 1,
-      },
-    };
+    const result = data.map((dict) => this.toDictionaryItem(dict));
 
-    // 3. 写入缓存（异步，不阻塞返回）
     this.redis
       .setex(cacheKey, this.CACHE_TTL, JSON.stringify(result))
       .catch((error: unknown) => {
@@ -167,9 +158,9 @@ export class DictionaryService {
   /**
    * 获取字典详情
    */
-  async findOne(id: number) {
+  async findOne(publicId: string) {
     const dict = await this.prisma.soft.dictionary.findUnique({
-      where: { id },
+      where: { publicId },
     });
 
     if (!dict) {
@@ -180,7 +171,7 @@ export class DictionaryService {
       });
     }
 
-    return dict;
+    return this.toDictionaryItem(dict);
   }
 
   /**
@@ -201,7 +192,7 @@ export class DictionaryService {
       });
     }
 
-    return dict;
+    return this.toDictionaryItem(dict);
   }
 
   /**
@@ -242,24 +233,22 @@ export class DictionaryService {
       },
     });
 
-    // 失效缓存
     await this.invalidateTypeCache(dto.type);
 
-    return created;
+    return this.toDictionaryItem(created);
   }
 
   /**
    * 更新字典
    */
-  async update(id: number, dto: UpdateDictionaryDto) {
-    const dict = await this.findOne(id);
+  async update(publicId: string, dto: UpdateDictionaryDto) {
+    const current = await this.getDictionaryInternalOrThrow(publicId);
 
-    // 如果 value 被更新，重新计算 configHash
     const configHash =
       dto.value !== undefined ? this.calculateConfigHash(dto.value) : undefined;
 
     const updated = await this.prisma.dictionary.update({
-      where: { id },
+      where: { id: current.id },
       data: {
         value:
           dto.value !== undefined
@@ -274,27 +263,25 @@ export class DictionaryService {
       },
     });
 
-    // 失效缓存
-    await this.invalidateTypeCache(dict.type);
+    await this.invalidateTypeCache(current.type);
 
-    return updated;
+    return this.toDictionaryItem(updated);
   }
 
   /**
    * 删除字典（软删除）
    */
-  async remove(id: number): Promise<{ message: string }> {
-    const dict = await this.findOne(id);
+  async remove(publicId: string): Promise<{ message: string }> {
+    const current = await this.getDictionaryInternalOrThrow(publicId);
 
     const auditCtx = getAuditContext();
 
-    await this.prisma.genericSoftDelete("Dictionary", id, {
+    await this.prisma.genericSoftDelete("Dictionary", current.id, {
       actorUserId: auditCtx?.actorUserId,
       reason: "Deleted by admin",
     });
 
-    // 失效缓存
-    await this.invalidateTypeCache(dict.type);
+    await this.invalidateTypeCache(current.type);
 
     return { message: "Dictionary deleted successfully" };
   }
@@ -303,7 +290,6 @@ export class DictionaryService {
    * 批量创建字典（用于数据初始化）
    */
   async bulkCreate(items: CreateDictionaryDto[]) {
-    // 检查是否有重复的 type+key
     const uniqueKeys = new Set<string>();
     for (const item of items) {
       const key = `${item.type}:${item.key}`;
@@ -317,7 +303,6 @@ export class DictionaryService {
       uniqueKeys.add(key);
     }
 
-    // 事务批量插入
     const created = await this.prisma.$transaction(
       items.map((item) => {
         const configHash = this.calculateConfigHash(item.value);
@@ -337,30 +322,75 @@ export class DictionaryService {
       }),
     );
 
-    // 批量失效缓存
     const types = [...new Set(items.map((item) => item.type))];
     await Promise.all(types.map((type) => this.invalidateTypeCache(type)));
 
-    return { count: created.length, data: created };
+    return {
+      count: created.length,
+      data: created.map((d) => this.toDictionaryItem(d)),
+    };
   }
 
-  /**
-   * 计算 value 的 MD5 hash
-   * 用于前端判断配置是否变化，避免重复拉取相同数据
-   */
+  private toDictionaryItem(dict: {
+    publicId: string;
+    type: string;
+    key: string;
+    value: Prisma.JsonValue;
+    label: string;
+    description: string | null;
+    sort: number;
+    isEnabled: boolean;
+    version: string | null;
+    configHash: string | null;
+    createdAt: Date;
+    updatedAt: Date;
+  }): DictionaryItem {
+    return {
+      id: dict.publicId,
+      type: dict.type,
+      key: dict.key,
+      value: dict.value,
+      label: dict.label,
+      description: dict.description,
+      sort: dict.sort,
+      isEnabled: dict.isEnabled,
+      version: dict.version,
+      configHash: dict.configHash,
+      createdAt: dict.createdAt,
+      updatedAt: dict.updatedAt,
+    };
+  }
+
   private calculateConfigHash(value: unknown): string {
     const jsonString = JSON.stringify(value);
     return createHash("md5").update(jsonString).digest("hex");
   }
 
-  /**
-   * 失效某个类型的缓存
-   * 使用固定 key 格式避免 KEYS 命令性能问题
-   */
+  private async getDictionaryInternalOrThrow(publicId: string): Promise<{
+    id: number;
+    type: string;
+  }> {
+    const dict = await this.prisma.soft.dictionary.findUnique({
+      where: { publicId },
+      select: { id: true, type: true },
+    });
+
+    if (!dict) {
+      throw new BusinessException({
+        code: ApiErrorCode.DICT_NOT_FOUND,
+        message: "Dictionary not found",
+        status: HttpStatus.NOT_FOUND,
+      });
+    }
+
+    return dict;
+  }
+
   private async invalidateTypeCache(type: string): Promise<void> {
     try {
       const keys = [
         `${this.CACHE_PREFIX}${type}:enabled`,
+        `${this.CACHE_PREFIX}${type}:disabled`,
         `${this.CACHE_PREFIX}${type}:all`,
       ];
       await this.redis.del(...keys);

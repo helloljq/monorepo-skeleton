@@ -11,9 +11,16 @@ import {
 } from "../dto";
 import { ConfigCacheService } from "./config-cache.service";
 
-/**
- * 配置命名空间服务
- */
+type NamespaceItem = {
+  id: string;
+  name: string;
+  displayName: string;
+  description: string | null;
+  isEnabled: boolean;
+  createdAt: Date;
+  updatedAt: Date;
+};
+
 @Injectable()
 export class NamespaceService {
   private readonly logger = new Logger(NamespaceService.name);
@@ -26,8 +33,7 @@ export class NamespaceService {
   /**
    * 创建命名空间
    */
-  async create(dto: CreateNamespaceDto) {
-    // 检查名称是否已存在
+  async create(dto: CreateNamespaceDto): Promise<NamespaceItem> {
     const existing = await this.prisma.configNamespace.findFirst({
       where: { name: dto.name, deletedAt: null },
     });
@@ -36,11 +42,11 @@ export class NamespaceService {
       throw new BusinessException({
         code: ApiErrorCode.CONFIG_NAMESPACE_EXISTS,
         message: `命名空间 "${dto.name}" 已存在`,
-        status: 409, // CONFLICT
+        status: 409,
       });
     }
 
-    const result = await this.prisma.configNamespace.create({
+    const created = await this.prisma.configNamespace.create({
       data: {
         name: dto.name,
         displayName: dto.displayName,
@@ -49,18 +55,18 @@ export class NamespaceService {
       },
     });
 
-    // 失效命名空间列表缓存
     await this.cacheService.invalidateNamespaceList();
 
-    return result;
+    return this.toNamespaceItem(created);
   }
 
   /**
    * 查询命名空间列表（分页）
    */
   async findAll(query: QueryNamespaceDto) {
-    const { page = 1, limit = 10, isEnabled } = query;
-    const skip = (page - 1) * limit;
+    const { page = 1, pageSize: rawPageSize, limit, isEnabled } = query;
+    const pageSize = rawPageSize ?? limit ?? 10;
+    const skip = (page - 1) * pageSize;
 
     const where: Prisma.ConfigNamespaceWhereInput = {
       ...(isEnabled !== undefined && { isEnabled }),
@@ -70,19 +76,18 @@ export class NamespaceService {
       this.prisma.soft.configNamespace.findMany({
         where,
         skip,
-        take: limit,
+        take: pageSize,
         orderBy: { createdAt: "desc" },
       }),
       this.prisma.soft.configNamespace.count({ where }),
     ]);
 
     return {
-      data,
-      meta: {
+      items: data.map((n) => this.toNamespaceItem(n)),
+      pagination: {
         total,
         page,
-        limit,
-        totalPages: Math.ceil(total / limit),
+        pageSize,
       },
     };
   }
@@ -90,30 +95,18 @@ export class NamespaceService {
   /**
    * 根据名称获取命名空间
    */
-  async findByName(name: string) {
-    const namespace = await this.prisma.configNamespace.findFirst({
-      where: { name, deletedAt: null },
-    });
-
-    if (!namespace) {
-      throw new BusinessException({
-        code: ApiErrorCode.CONFIG_NAMESPACE_NOT_FOUND,
-        message: `命名空间 "${name}" 不存在`,
-        status: 404, // NOT_FOUND
-      });
-    }
-
-    return namespace;
+  async findByName(name: string): Promise<NamespaceItem> {
+    const namespace = await this.getNamespaceInternalOrThrow(name);
+    return this.toNamespaceItem(namespace);
   }
 
   /**
    * 更新命名空间
    */
-  async update(name: string, dto: UpdateNamespaceDto) {
-    // 检查命名空间是否存在
-    const namespace = await this.findByName(name);
+  async update(name: string, dto: UpdateNamespaceDto): Promise<NamespaceItem> {
+    const namespace = await this.getNamespaceInternalOrThrow(name);
 
-    const result = await this.prisma.raw.configNamespace.update({
+    const updated = await this.prisma.raw.configNamespace.update({
       where: { id: namespace.id },
       data: {
         displayName: dto.displayName,
@@ -122,10 +115,9 @@ export class NamespaceService {
       },
     });
 
-    // 失效命名空间列表缓存
     await this.cacheService.invalidateNamespaceList();
 
-    return result;
+    return this.toNamespaceItem(updated);
   }
 
   /**
@@ -133,13 +125,9 @@ export class NamespaceService {
    *
    * 删除前检查是否存在活跃配置项，若存在则拒绝删除
    */
-  async remove(
-    name: string,
-  ): Promise<{ id: number; deletedAt: Date | null } | null> {
-    // 检查命名空间是否存在
-    const namespace = await this.findByName(name);
+  async remove(name: string): Promise<void> {
+    const namespace = await this.getNamespaceInternalOrThrow(name);
 
-    // 检查是否有活跃的配置项
     const activeItemsCount = await this.prisma.configItem.count({
       where: { namespaceId: namespace.id, deletedAt: null },
     });
@@ -151,18 +139,46 @@ export class NamespaceService {
       });
     }
 
-    // 执行软删除
-    const result = await this.prisma.genericSoftDelete(
-      "ConfigNamespace",
-      namespace.id,
-      {
-        reason: "用户删除命名空间",
-      },
-    );
+    await this.prisma.genericSoftDelete("ConfigNamespace", namespace.id, {
+      reason: "用户删除命名空间",
+    });
 
-    // 失效命名空间列表缓存
     await this.cacheService.invalidateNamespaceList();
+  }
 
-    return result;
+  async getNamespaceInternalOrThrow(name: string) {
+    const namespace = await this.prisma.configNamespace.findFirst({
+      where: { name, deletedAt: null },
+    });
+
+    if (!namespace) {
+      throw new BusinessException({
+        code: ApiErrorCode.CONFIG_NAMESPACE_NOT_FOUND,
+        message: `命名空间 "${name}" 不存在`,
+        status: 404,
+      });
+    }
+
+    return namespace;
+  }
+
+  private toNamespaceItem(namespace: {
+    publicId: string;
+    name: string;
+    displayName: string;
+    description: string | null;
+    isEnabled: boolean;
+    createdAt: Date;
+    updatedAt: Date;
+  }): NamespaceItem {
+    return {
+      id: namespace.publicId,
+      name: namespace.name,
+      displayName: namespace.displayName,
+      description: namespace.description,
+      isEnabled: namespace.isEnabled,
+      createdAt: namespace.createdAt,
+      updatedAt: namespace.updatedAt,
+    };
   }
 }

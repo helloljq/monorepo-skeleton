@@ -54,6 +54,13 @@ export const RefreshTokenSchema = z.object({
 
 export class RefreshTokenDto extends createZodDto(RefreshTokenSchema) {}
 
+// Web Cookie 模式：refreshToken 从 HttpOnly Cookie 读取，Body 仅传 deviceId
+export const WebRefreshSchema = z.object({
+  deviceId: zNonEmptyTrimmedString(),
+});
+
+export class WebRefreshDto extends createZodDto(WebRefreshSchema) {}
+
 export const LogoutSchema = z.object({
   deviceId: zNonEmptyTrimmedString().describe(
     "Device ID for multi-device logout",
@@ -100,8 +107,12 @@ export class PhoneLoginDto extends createZodDto(PhoneLoginSchema) {}
  * 注册成功响应
  */
 export class RegisterResponseDto {
-  @ApiProperty({ description: "用户 ID", example: 1 })
-  id!: number;
+  @ApiProperty({
+    description: "用户 ID（Public ID）",
+    format: "uuid",
+    example: "550e8400-e29b-41d4-a716-446655440000",
+  })
+  id!: string;
 
   @ApiProperty({ description: "邮箱", example: "user@example.com" })
   email!: string;
@@ -131,6 +142,37 @@ export class TokenResponseDto {
     example: 900,
   })
   accessExpiresInSeconds!: number;
+}
+
+/**
+ * Web 登录响应（不返回 Token）
+ */
+export class WebLoginResponseDto {
+  @ApiProperty({
+    description: "用户 ID（Public ID）",
+    format: "uuid",
+    example: "550e8400-e29b-41d4-a716-446655440000",
+  })
+  id!: string;
+
+  @ApiProperty({
+    description: "邮箱",
+    example: "user@example.com",
+    nullable: true,
+  })
+  email!: string | null;
+
+  @ApiPropertyOptional({ description: "用户名", example: "John Doe" })
+  name?: string | null;
+
+  @ApiProperty({ description: "用户状态", example: "ACTIVE" })
+  status!: string;
+
+  @ApiPropertyOptional({ description: "头像 URL" })
+  avatar?: string | null;
+
+  @ApiProperty({ description: "角色列表", example: ["ADMIN"], isArray: true })
+  roles!: string[];
 }
 
 /**

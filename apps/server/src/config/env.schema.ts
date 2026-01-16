@@ -17,11 +17,14 @@ function isInsecurePlaceholder(value: string): boolean {
 
 export const envSchema = z
   .object({
+    // Canonical app environment (ADR-ENV-001)
+    APP_ENV: z.enum(["dev", "staging", "prod"]).default("dev"),
+
     // Server
     NODE_ENV: z
       .enum(["development", "production", "test"])
       .default("development"),
-    PORT: z.coerce.number().default({{PORT_SERVER_DEV}}),
+    PORT: z.coerce.number().default(17000),
     BODY_LIMIT: z.string().default("1mb"),
 
     // CORS (comma-separated list of allowed origins)
@@ -30,7 +33,7 @@ export const envSchema = z
     CORS_ORIGINS: z
       .string()
       .default(
-        "http://localhost:{{PORT_ADMIN_DEV}},http://localhost:{{PORT_WWW_DEV}},http://localhost:{{PORT_SERVER_DEV}},https://admin-dev.{{DOMAIN}},https://www-dev.{{DOMAIN}}",
+        "http://localhost:17001,http://localhost:17002,http://localhost:17000,https://admin-dev.monorepo-skeleton.test,https://www-dev.monorepo-skeleton.test",
       ),
 
     // Database (PostgreSQL)
@@ -85,14 +88,23 @@ export const envSchema = z
     SCRIPT_UPLOAD_TOKEN: z.string().min(32).optional(),
   })
   .superRefine((data, ctx) => {
-    // 生产环境禁止使用不安全的占位符 secret
-    if (data.NODE_ENV === "production") {
+    // APP_ENV=staging/prod 时，NODE_ENV 必须为 production（NODE_ENV 仅表达运行时优化级别，不承载部署语义）
+    if (data.APP_ENV !== "dev" && data.NODE_ENV !== "production") {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["NODE_ENV"],
+        message: "When APP_ENV is staging/prod, NODE_ENV must be 'production'",
+      });
+    }
+
+    // staging/prod 禁止使用不安全的占位符 secret
+    if (data.APP_ENV !== "dev") {
       if (isInsecurePlaceholder(data.JWT_ACCESS_SECRET)) {
         ctx.addIssue({
           code: z.ZodIssueCode.custom,
           path: ["JWT_ACCESS_SECRET"],
           message:
-            "Production environment detected insecure placeholder in JWT_ACCESS_SECRET. Please use a secure random secret.",
+            "Staging/production environment detected insecure placeholder in JWT_ACCESS_SECRET. Please use a secure random secret.",
         });
       }
       if (isInsecurePlaceholder(data.JWT_REFRESH_SECRET)) {
@@ -100,12 +112,12 @@ export const envSchema = z
           code: z.ZodIssueCode.custom,
           path: ["JWT_REFRESH_SECRET"],
           message:
-            "Production environment detected insecure placeholder in JWT_REFRESH_SECRET. Please use a secure random secret.",
+            "Staging/production environment detected insecure placeholder in JWT_REFRESH_SECRET. Please use a secure random secret.",
         });
       }
 
       // 配置中心加密密钥校验
-      if (!data.CONFIG_ENCRYPTION_KEY) {
+      if (data.APP_ENV === "prod" && !data.CONFIG_ENCRYPTION_KEY) {
         ctx.addIssue({
           code: z.ZodIssueCode.custom,
           path: ["CONFIG_ENCRYPTION_KEY"],

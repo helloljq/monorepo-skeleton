@@ -4,7 +4,7 @@ import {
   Delete,
   Get,
   Param,
-  ParseIntPipe,
+  ParseUUIDPipe,
   Patch,
   Post,
   Query,
@@ -34,7 +34,7 @@ export class PermissionController {
   @ApiOperation({ summary: "权限列表" })
   @ApiQuery({ name: "page", required: false, description: "页码（从1开始）" })
   @ApiQuery({
-    name: "limit",
+    name: "pageSize",
     required: false,
     description: "每页数量（1-100）",
   })
@@ -58,7 +58,7 @@ export class PermissionController {
   @RequirePermissions("permission:read")
   @ApiOperation({ summary: "权限详情" })
   @ApiOkResponse({ description: "返回权限详情（含关联角色）" })
-  findOne(@Param("id", ParseIntPipe) id: number) {
+  findOne(@Param("id", new ParseUUIDPipe({ version: "4" })) id: string) {
     return this.permissionService.findOne(id);
   }
 
@@ -75,7 +75,7 @@ export class PermissionController {
   @ApiOperation({ summary: "更新权限" })
   @ApiOkResponse({ description: "返回更新后的权限" })
   update(
-    @Param("id", ParseIntPipe) id: number,
+    @Param("id", new ParseUUIDPipe({ version: "4" })) id: string,
     @Body() dto: UpdatePermissionDto,
   ) {
     return this.permissionService.update(id, dto);
@@ -85,7 +85,7 @@ export class PermissionController {
   @RequirePermissions("permission:delete")
   @ApiOperation({ summary: "删除权限" })
   @ApiOkResponse({ description: "返回删除结果" })
-  remove(@Param("id", ParseIntPipe) id: number) {
+  remove(@Param("id", new ParseUUIDPipe({ version: "4" })) id: string) {
     return this.permissionService.remove(id);
   }
 }

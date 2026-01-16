@@ -5,8 +5,8 @@ import {
   NestInterceptor,
 } from "@nestjs/common";
 import { Reflector } from "@nestjs/core";
-import { Request } from "express";
-import { Observable } from "rxjs";
+import type { Request } from "express";
+import type { Observable } from "rxjs";
 
 import { runWithAuditContext } from "../audit/audit-context";
 import { SKIP_AUDIT_KEY } from "../decorators/skip-audit.decorator";
@@ -48,6 +48,9 @@ export class AuditContextInterceptor implements NestInterceptor {
         : undefined) ?? undefined;
 
     const requestId =
+      (typeof headers["x-trace-id"] === "string"
+        ? headers["x-trace-id"]
+        : undefined) ??
       (typeof headers["x-request-id"] === "string"
         ? headers["x-request-id"]
         : undefined) ??

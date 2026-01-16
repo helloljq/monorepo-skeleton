@@ -6,7 +6,10 @@ import { zBooleanFromString } from "../../../common/validation/zod-helpers";
 export const QueryRoleSchema = z.object({
   isEnabled: zBooleanFromString().optional(),
   page: z.coerce.number().int().min(1).default(1),
-  limit: z.coerce.number().int().min(1).max(100).default(10),
+  // Canonical param name: pageSize (ADR-API-001 / API design spec).
+  // Keep `limit` for backwards compatibility during migration.
+  pageSize: z.coerce.number().int().min(1).max(100).optional(),
+  limit: z.coerce.number().int().min(1).max(100).optional(),
 });
 
 export class QueryRoleDto extends createZodDto(QueryRoleSchema) {}

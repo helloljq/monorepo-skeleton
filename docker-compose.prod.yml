@@ -2,7 +2,7 @@
 # Docker Compose - 生产环境部署
 # =============================================================================
 # 部署步骤:
-#   1. 在服务器上创建 /opt/{{NAME}} 目录
+#   1. 在服务器上创建 /opt/monorepo-skeleton 目录
 #   2. 复制此文件和 .env.prod 到服务器
 #   3. 执行: docker-compose -f docker-compose.prod.yml up -d
 #
@@ -19,10 +19,10 @@ services:
   # ---------------------------------------------------------------------------
   server:
     image: ${DOCKER_REGISTRY}/server:${IMAGE_TAG:-latest}
-    container_name: {{NAME}}-server-prod
+    container_name: monorepo-skeleton-server-prod
     restart: unless-stopped
     ports:
-      - "${SERVER_PORT:-{{PORT_SERVER_PROD}}}:8100"
+      - "${SERVER_PORT:-17200}:8100"
     environment:
       - NODE_ENV=production
       - PORT=8100
@@ -36,7 +36,13 @@ services:
       - IDEMPOTENCY_TTL_SECONDS=${IDEMPOTENCY_TTL_SECONDS:-86400}
       - PRISMA_SLOW_QUERY_MS=${PRISMA_SLOW_QUERY_MS:-500}
     healthcheck:
-      test: ["CMD", "node", "-e", "require('http').get('http://localhost:8100/health', (res) => { process.exit(res.statusCode === 200 ? 0 : 1); }).on('error', () => process.exit(1))"]
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "require('http').get('http://localhost:8100/health', (res) => { process.exit(res.statusCode === 200 ? 0 : 1); }).on('error', () => process.exit(1))",
+        ]
       interval: 30s
       timeout: 10s
       start_period: 40s
@@ -47,19 +53,27 @@ services:
         max-size: "100m"
         max-file: "3"
     networks:
-      - {{NAME}}-network
+      - monorepo-skeleton-network
 
   # ---------------------------------------------------------------------------
   # Admin Web 管理后台
   # ---------------------------------------------------------------------------
   admin-web:
     image: ${DOCKER_REGISTRY}/admin-web:${IMAGE_TAG:-latest}
-    container_name: {{NAME}}-admin-web-prod
+    container_name: monorepo-skeleton-admin-web-prod
     restart: unless-stopped
     ports:
-      - "${ADMIN_WEB_PORT:-{{PORT_ADMIN_PROD}}}:80"
+      - "${ADMIN_WEB_PORT:-17201}:80"
     healthcheck:
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://127.0.0.1/health"]
+      test:
+        [
+          "CMD",
+          "wget",
+          "--no-verbose",
+          "--tries=1",
+          "--spider",
+          "http://127.0.0.1/health",
+        ]
       interval: 30s
       timeout: 3s
       start_period: 5s
@@ -70,19 +84,27 @@ services:
         max-size: "50m"
         max-file: "3"
     networks:
-      - {{NAME}}-network
+      - monorepo-skeleton-network
 
   # ---------------------------------------------------------------------------
   # WWW Web 移动端
   # ---------------------------------------------------------------------------
   www-web:
     image: ${DOCKER_REGISTRY}/www-web:${IMAGE_TAG:-latest}
-    container_name: {{NAME}}-www-web-prod
+    container_name: monorepo-skeleton-www-web-prod
     restart: unless-stopped
     ports:
-      - "${WWW_WEB_PORT:-{{PORT_WWW_PROD}}}:80"
+      - "${WWW_WEB_PORT:-17202}:80"
     healthcheck:
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://127.0.0.1/health"]
+      test:
+        [
+          "CMD",
+          "wget",
+          "--no-verbose",
+          "--tries=1",
+          "--spider",
+          "http://127.0.0.1/health",
+        ]
       interval: 30s
       timeout: 3s
       start_period: 5s
@@ -93,8 +115,8 @@ services:
         max-size: "50m"
         max-file: "3"
     networks:
-      - {{NAME}}-network
+      - monorepo-skeleton-network
 
 networks:
-  {{NAME}}-network:
+  monorepo-skeleton-network:
     driver: bridge

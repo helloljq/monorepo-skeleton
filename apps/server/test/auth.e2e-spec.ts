@@ -17,10 +17,9 @@ import { PrismaService } from "./../src/database/prisma/prisma.service";
 type RedisClient = import("ioredis").default;
 
 interface ApiResponse<T = unknown> {
-  code: number;
+  code: string;
   message: string;
   data: T;
-  timestamp: number;
 }
 
 describe("Auth (e2e)", () => {
@@ -41,7 +40,7 @@ describe("Auth (e2e)", () => {
     app =
       moduleFixture.createNestApplication() as unknown as INestApplication<App>;
     app.enableShutdownHooks();
-    app.setGlobalPrefix("api/v1");
+    app.setGlobalPrefix("v1");
 
     const httpAdapter = app.get<HttpAdapterHost>(HttpAdapterHost);
     app.useGlobalFilters(
@@ -54,7 +53,7 @@ describe("Auth (e2e)", () => {
     const redis = app.get<RedisClient>(REDIS_CLIENT);
     app.useGlobalInterceptors(
       new IdempotencyInterceptor(reflector, redis, configService),
-      new AuditContextInterceptor(),
+      new AuditContextInterceptor(reflector),
       new TransformInterceptor(reflector),
     );
 
@@ -78,10 +77,10 @@ describe("Auth (e2e)", () => {
     }
   });
 
-  describe("POST /api/v1/auth/register", () => {
+  describe("POST /v1/auth/register", () => {
     it("should register a new user successfully", async () => {
       const response = await request(app.getHttpServer())
-        .post("/api/v1/auth/register")
+        .post("/v1/auth/register")
         .send(testUser)
         .expect(201);
 
@@ -90,24 +89,24 @@ describe("Auth (e2e)", () => {
         email: string;
         name: string;
       }>;
-      expect(body.code).toBe(0);
+      expect(body.code).toBe("SUCCESS");
       expect(body.data.email).toBe(testUser.email);
       expect(body.data.name).toBe(testUser.name);
     });
 
     it("should return 409 for duplicate email", async () => {
       const response = await request(app.getHttpServer())
-        .post("/api/v1/auth/register")
+        .post("/v1/auth/register")
         .send(testUser)
         .expect(409);
 
       const body = response.body as ApiResponse;
-      expect(body.code).toBe(11002); // AUTH_EMAIL_EXISTS
+      expect(body.code).toBe("AUTH_EMAIL_EXISTS");
     });
 
     it("should return 400 for invalid email format", async () => {
       const response = await request(app.getHttpServer())
-        .post("/api/v1/auth/register")
+        .post("/v1/auth/register")
         .send({
           email: "invalid-email",
           password: "TestPassword123",
@@ -115,12 +114,12 @@ describe("Auth (e2e)", () => {
         .expect(400);
 
       const body = response.body as ApiResponse;
-      expect(body.code).toBe(10001); // BAD_REQUEST
+      expect(body.code).toBe("VALIDATION_ERROR");
     });
 
     it("should return 400 for weak password", async () => {
       const response = await request(app.getHttpServer())
-        .post("/api/v1/auth/register")
+        .post("/v1/auth/register")
         .send({
           email: "weak@example.com",
           password: "weak", // Too short, no uppercase, no digit
@@ -128,14 +127,14 @@ describe("Auth (e2e)", () => {
         .expect(400);
 
       const body = response.body as ApiResponse;
-      expect(body.code).toBe(10001); // BAD_REQUEST
+      expect(body.code).toBe("VALIDATION_ERROR");
     });
   });
 
-  describe("POST /api/v1/auth/login", () => {
+  describe("POST /v1/auth/login", () => {
     it("should login successfully with valid credentials", async () => {
       const response = await request(app.getHttpServer())
-        .post("/api/v1/auth/login")
+        .post("/v1/auth/login")
         .send({
           email: testUser.email,
           password: testUser.password,
@@ -148,7 +147,7 @@ describe("Auth (e2e)", () => {
         refreshToken: string;
         accessExpiresInSeconds: number;
       }>;
-      expect(body.code).toBe(0);
+      expect(body.code).toBe("SUCCESS");
       expect(body.data.accessToken).toBeDefined();
       expect(body.data.refreshToken).toBeDefined();
       expect(body.data.accessExpiresInSeconds).toBeGreaterThan(0);
@@ -156,7 +155,7 @@ describe("Auth (e2e)", () => {
 
     it("should return 401 for invalid email", async () => {
       const response = await request(app.getHttpServer())
-        .post("/api/v1/auth/login")
+        .post("/v1/auth/login")
         .send({
           email: "nonexistent@example.com",
           password: "TestPassword123",
@@ -165,12 +164,12 @@ describe("Auth (e2e)", () => {
         .expect(401);
 
       const body = response.body as ApiResponse;
-      expect(body.code).toBe(11001); // AUTH_INVALID_CREDENTIALS
+      expect(body.code).toBe("AUTH_INVALID_CREDENTIALS");
     });
 
     it("should return 401 for wrong password", async () => {
       const response = await request(app.getHttpServer())
-        .post("/api/v1/auth/login")
+        .post("/v1/auth/login")
         .send({
           email: testUser.email,
           password: "WrongPassword123",
@@ -179,12 +178,12 @@ describe("Auth (e2e)", () => {
         .expect(401);
 
       const body = response.body as ApiResponse;
-      expect(body.code).toBe(11001); // AUTH_INVALID_CREDENTIALS
+      expect(body.code).toBe("AUTH_INVALID_CREDENTIALS");
     });
 
     it("should return 400 for missing deviceId", async () => {
       const response = await request(app.getHttpServer())
-        .post("/api/v1/auth/login")
+        .post("/v1/auth/login")
         .send({
           email: testUser.email,
           password: testUser.password,
@@ -192,17 +191,17 @@ describe("Auth (e2e)", () => {
         .expect(400);
 
       const body = response.body as ApiResponse;
-      expect(body.code).toBe(10001); // BAD_REQUEST
+      expect(body.code).toBe("VALIDATION_ERROR");
     });
   });
 
-  describe("POST /api/v1/auth/refresh", () => {
+  describe("POST /v1/auth/refresh", () => {
     let validRefreshToken: string;
 
     beforeAll(async () => {
       // Login to get a valid refresh token
       const response = await request(app.getHttpServer())
-        .post("/api/v1/auth/login")
+        .post("/v1/auth/login")
         .send({
           email: testUser.email,
           password: testUser.password,
@@ -216,7 +215,7 @@ describe("Auth (e2e)", () => {
 
     it("should refresh tokens successfully", async () => {
       const response = await request(app.getHttpServer())
-        .post("/api/v1/auth/refresh")
+        .post("/v1/auth/refresh")
         .send({
           refreshToken: validRefreshToken,
           deviceId: "refresh-test-device",
@@ -227,14 +226,14 @@ describe("Auth (e2e)", () => {
         accessToken: string;
         refreshToken: string;
       }>;
-      expect(body.code).toBe(0);
+      expect(body.code).toBe("SUCCESS");
       expect(body.data.accessToken).toBeDefined();
       expect(body.data.refreshToken).toBeDefined();
     });
 
     it("should return 401 for invalid refresh token", async () => {
       const response = await request(app.getHttpServer())
-        .post("/api/v1/auth/refresh")
+        .post("/v1/auth/refresh")
         .send({
           refreshToken: "invalid-token",
           deviceId: "test-device-1",
@@ -242,12 +241,12 @@ describe("Auth (e2e)", () => {
         .expect(401);
 
       const body = response.body as ApiResponse;
-      expect(body.code).toBe(11007); // AUTH_REFRESH_TOKEN_INVALID
+      expect(body.code).toBe("AUTH_REFRESH_TOKEN_INVALID");
     });
 
     it("should return 401 for wrong deviceId", async () => {
       const response = await request(app.getHttpServer())
-        .post("/api/v1/auth/refresh")
+        .post("/v1/auth/refresh")
         .send({
           refreshToken: validRefreshToken,
           deviceId: "wrong-device-id",
@@ -255,17 +254,17 @@ describe("Auth (e2e)", () => {
         .expect(401);
 
       const body = response.body as ApiResponse;
-      expect(body.code).toBe(11007); // AUTH_REFRESH_TOKEN_INVALID
+      expect(body.code).toBe("AUTH_REFRESH_TOKEN_INVALID");
     });
   });
 
-  describe("POST /api/v1/auth/logout", () => {
+  describe("POST /v1/auth/logout", () => {
     let accessToken: string;
 
     beforeAll(async () => {
       // Login to get access token
       const response = await request(app.getHttpServer())
-        .post("/api/v1/auth/login")
+        .post("/v1/auth/login")
         .send({
           email: testUser.email,
           password: testUser.password,
@@ -278,7 +277,7 @@ describe("Auth (e2e)", () => {
 
     it("should logout successfully", async () => {
       const response = await request(app.getHttpServer())
-        .post("/api/v1/auth/logout")
+        .post("/v1/auth/logout")
         .set("Authorization", `Bearer ${accessToken}`)
         .send({
           deviceId: "logout-test-device",
@@ -286,20 +285,20 @@ describe("Auth (e2e)", () => {
         .expect(200);
 
       const body = response.body as ApiResponse<{ message: string }>;
-      expect(body.code).toBe(0);
+      expect(body.code).toBe("SUCCESS");
       expect(body.data.message).toBe("Logged out successfully");
     });
 
     it("should return 401 without auth token", async () => {
       const response = await request(app.getHttpServer())
-        .post("/api/v1/auth/logout")
+        .post("/v1/auth/logout")
         .send({
           deviceId: "test-device-1",
         })
         .expect(401);
 
       const body = response.body as ApiResponse;
-      expect(body.code).toBe(10002); // UNAUTHORIZED
+      expect(body.code).toBe("UNAUTHORIZED");
     });
   });
 });

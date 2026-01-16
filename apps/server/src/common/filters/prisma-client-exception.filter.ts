@@ -6,7 +6,7 @@ import {
   Logger,
 } from "@nestjs/common";
 import { PrismaClientKnownRequestError } from "@prisma/client/runtime/library";
-import { Response } from "express";
+import type { Response } from "express";
 
 import {
   ApiErrorCode,
@@ -114,7 +114,6 @@ export class PrismaClientExceptionFilter implements ExceptionFilter {
       code,
       message: clientMessage,
       data: null,
-      timestamp: Date.now(),
     });
   }
 

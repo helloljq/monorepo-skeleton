@@ -1,10 +1,12 @@
 import { HttpException, HttpStatus } from "@nestjs/common";
 
+import type { ApiErrorCode } from "./error-codes";
+
 export interface BusinessExceptionOptions {
   /**
    * 业务错误码（与 HTTP Status 解耦）
    */
-  code: number;
+  code: ApiErrorCode;
 
   /**
    * 对外可读的错误信息（生产环境也会透出）
@@ -23,20 +25,20 @@ export interface BusinessExceptionOptions {
 }
 
 export class BusinessException extends HttpException {
-  readonly businessCode: number;
+  readonly code: ApiErrorCode;
   readonly data?: unknown;
 
   constructor(options: BusinessExceptionOptions) {
     const status = options.status ?? HttpStatus.BAD_REQUEST;
     super(
       {
-        businessCode: options.code,
+        code: options.code,
         message: options.message,
         data: options.data ?? null,
       },
       status,
     );
-    this.businessCode = options.code;
+    this.code = options.code;
     this.data = options.data;
   }
 }

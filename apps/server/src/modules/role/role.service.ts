@@ -8,6 +8,16 @@ import { PrismaService } from "../../database/prisma/prisma.service";
 import { PermissionCacheService } from "../auth/services/permission-cache.service";
 import { CreateRoleDto, QueryRoleDto, UpdateRoleDto } from "./dto";
 
+type PermissionItem = {
+  id: string;
+  code: string;
+  name: string;
+  resource: string;
+  action: string;
+  module: string | null;
+  isEnabled: boolean;
+};
+
 @Injectable()
 export class RoleService {
   private readonly logger = new Logger(RoleService.name);
@@ -21,24 +31,25 @@ export class RoleService {
    * 获取角色列表（分页）
    */
   async findAll(query: QueryRoleDto) {
-    const { page, limit, isEnabled } = query;
-    const skip = (page - 1) * limit;
+    const { page, pageSize: rawPageSize, limit, isEnabled } = query;
+    const pageSize = rawPageSize ?? limit ?? 10;
+    const skip = (page - 1) * pageSize;
 
     const where = {
       ...(isEnabled !== undefined && { isEnabled }),
     };
 
-    const [data, total] = await Promise.all([
+    const [roles, total] = await Promise.all([
       this.prisma.soft.role.findMany({
         where,
         skip,
-        take: limit,
+        take: pageSize,
         orderBy: { createdAt: "desc" },
         include: {
           _count: {
             select: {
-              UserRole: true,
-              RolePermission: true,
+              userRoles: true,
+              rolePermissions: true,
             },
           },
         },
@@ -47,28 +58,38 @@ export class RoleService {
     ]);
 
     return {
-      data,
-      meta: {
+      items: roles.map((role) => ({
+        id: role.publicId,
+        code: role.code,
+        name: role.name,
+        description: role.description,
+        type: role.type,
+        isEnabled: role.isEnabled,
+        createdAt: role.createdAt,
+        updatedAt: role.updatedAt,
+        userCount: role._count.userRoles,
+        permissionCount: role._count.rolePermissions,
+      })),
+      pagination: {
         total,
         page,
-        limit,
-        totalPages: Math.ceil(total / limit),
+        pageSize,
       },
     };
   }
 
   /**
-   * 获取角色详情
+   * 获取角色详情（含权限列表）
    */
-  async findOne(id: number) {
+  async findOne(rolePublicId: string) {
     const role = await this.prisma.soft.role.findUnique({
-      where: { id },
+      where: { publicId: rolePublicId },
       include: {
-        RolePermission: {
+        rolePermissions: {
           include: {
-            Permission: {
+            permission: {
               select: {
-                id: true,
+                publicId: true,
                 code: true,
                 name: true,
                 resource: true,
@@ -79,9 +100,7 @@ export class RoleService {
             },
           },
         },
-        _count: {
-          select: { UserRole: true },
-        },
+        _count: { select: { userRoles: true } },
       },
     });
 
@@ -93,21 +112,42 @@ export class RoleService {
       });
     }
 
-    return role;
+    return {
+      id: role.publicId,
+      code: role.code,
+      name: role.name,
+      description: role.description,
+      type: role.type,
+      isEnabled: role.isEnabled,
+      createdAt: role.createdAt,
+      updatedAt: role.updatedAt,
+      userCount: role._count.userRoles,
+      permissions: role.rolePermissions.map(
+        (rp): PermissionItem => ({
+          id: rp.permission.publicId,
+          code: rp.permission.code,
+          name: rp.permission.name,
+          resource: rp.permission.resource,
+          action: rp.permission.action,
+          module: rp.permission.module,
+          isEnabled: rp.permission.isEnabled,
+        }),
+      ),
+    };
   }
 
   /**
    * 获取角色的权限列表
    */
-  async findRolePermissions(id: number) {
+  async findRolePermissions(rolePublicId: string) {
     const role = await this.prisma.soft.role.findUnique({
-      where: { id },
+      where: { publicId: rolePublicId },
       include: {
-        RolePermission: {
+        rolePermissions: {
           include: {
-            Permission: {
+            permission: {
               select: {
-                id: true,
+                publicId: true,
                 code: true,
                 name: true,
                 resource: true,
@@ -129,15 +169,22 @@ export class RoleService {
       });
     }
 
-    const data = role.RolePermission.map((rp) => rp.Permission);
+    const items: PermissionItem[] = role.rolePermissions.map((rp) => ({
+      id: rp.permission.publicId,
+      code: rp.permission.code,
+      name: rp.permission.name,
+      resource: rp.permission.resource,
+      action: rp.permission.action,
+      module: rp.permission.module,
+      isEnabled: rp.permission.isEnabled,
+    }));
 
     return {
-      data,
-      meta: {
-        total: data.length,
+      items,
+      pagination: {
+        total: items.length,
         page: 1,
-        limit: data.length,
-        totalPages: 1,
+        pageSize: items.length,
       },
     };
   }
@@ -159,7 +206,7 @@ export class RoleService {
       });
     }
 
-    return this.prisma.role.create({
+    const created = await this.prisma.role.create({
       data: {
         code: dto.code,
         name: dto.name,
@@ -167,13 +214,24 @@ export class RoleService {
         type: RoleType.CUSTOM,
       },
     });
+
+    return {
+      id: created.publicId,
+      code: created.code,
+      name: created.name,
+      description: created.description,
+      type: created.type,
+      isEnabled: created.isEnabled,
+      createdAt: created.createdAt,
+      updatedAt: created.updatedAt,
+    };
   }
 
   /**
    * 更新角色
    */
-  async update(id: number, dto: UpdateRoleDto) {
-    const role = await this.findOne(id);
+  async update(rolePublicId: string, dto: UpdateRoleDto) {
+    const role = await this.getRoleInternalOrThrow(rolePublicId);
 
     // 系统角色不可修改
     if (role.type === RoleType.SYSTEM) {
@@ -185,7 +243,7 @@ export class RoleService {
     }
 
     const updated = await this.prisma.role.update({
-      where: { id },
+      where: { id: role.id },
       data: {
         name: dto.name,
         description: dto.description,
@@ -196,14 +254,23 @@ export class RoleService {
     // 角色更新后失效缓存
     await this.permissionCache.invalidateRoleCache(role.code);
 
-    return updated;
+    return {
+      id: updated.publicId,
+      code: updated.code,
+      name: updated.name,
+      description: updated.description,
+      type: updated.type,
+      isEnabled: updated.isEnabled,
+      createdAt: updated.createdAt,
+      updatedAt: updated.updatedAt,
+    };
   }
 
   /**
    * 删除角色（软删除）
    */
-  async remove(id: number): Promise<{ message: string }> {
-    const role = await this.findOne(id);
+  async remove(rolePublicId: string): Promise<{ message: string }> {
+    const role = await this.getRoleInternalOrThrow(rolePublicId);
 
     // 系统角色不可删除
     if (role.type === RoleType.SYSTEM) {
@@ -218,7 +285,7 @@ export class RoleService {
     const auditCtx = getAuditContext();
 
     // 使用泛型软删除
-    await this.prisma.genericSoftDelete("Role", id, {
+    await this.prisma.genericSoftDelete("Role", role.id, {
       actorUserId: auditCtx?.actorUserId,
       reason: "Deleted by admin",
     });
@@ -232,19 +299,20 @@ export class RoleService {
   /**
    * 为角色分配权限（替换模式）
    */
-  async assignPermissions(roleId: number, permissionIds: number[]) {
-    const role = await this.findOne(roleId);
+  async assignPermissions(rolePublicId: string, permissionPublicIds: string[]) {
+    const role = await this.getRoleInternalOrThrow(rolePublicId);
 
     // 验证所有权限是否存在
     const permissions = await this.prisma.permission.findMany({
       where: {
-        id: { in: permissionIds },
+        publicId: { in: permissionPublicIds },
       },
+      select: { id: true, publicId: true },
     });
 
-    if (permissions.length !== permissionIds.length) {
-      const foundIds = new Set(permissions.map((p) => p.id));
-      const missingIds = permissionIds.filter((id) => !foundIds.has(id));
+    if (permissions.length !== permissionPublicIds.length) {
+      const foundIds = new Set(permissions.map((p) => p.publicId));
+      const missingIds = permissionPublicIds.filter((id) => !foundIds.has(id));
       throw new BusinessException({
         code: ApiErrorCode.PERMISSION_NOT_FOUND,
         message: `Permissions not found: ${missingIds.join(", ")}`,
@@ -258,12 +326,12 @@ export class RoleService {
 
     // 事务：删除旧权限 + 添加新权限
     await this.prisma.$transaction(async (tx) => {
-      await tx.rolePermission.deleteMany({ where: { roleId } });
+      await tx.rolePermission.deleteMany({ where: { roleId: role.id } });
       await tx.rolePermission.createMany({
-        data: permissionIds.map((permissionId) => ({
-          roleId,
-          permissionId,
-          grantedBy,
+        data: permissions.map((permission) => ({
+          roleId: role.id,
+          permissionId: permission.id,
+          grantedById: grantedBy,
         })),
       });
     });
@@ -272,7 +340,11 @@ export class RoleService {
     await this.permissionCache.invalidateRoleCache(role.code);
 
     this.logger.debug(
-      { roleId, roleCode: role.code, permissionCount: permissionIds.length },
+      {
+        rolePublicId,
+        roleCode: role.code,
+        permissionCount: permissionPublicIds.length,
+      },
       "[role] Permissions assigned",
     );
 
@@ -282,12 +354,12 @@ export class RoleService {
   /**
    * 为角色添加单个权限
    */
-  async addPermission(roleId: number, permissionId: number) {
-    const role = await this.findOne(roleId);
+  async addPermission(rolePublicId: string, permissionPublicId: string) {
+    const role = await this.getRoleInternalOrThrow(rolePublicId);
 
-    // 检查权限是否存在
     const permission = await this.prisma.permission.findUnique({
-      where: { id: permissionId },
+      where: { publicId: permissionPublicId },
+      select: { id: true },
     });
 
     if (!permission) {
@@ -298,12 +370,11 @@ export class RoleService {
       });
     }
 
-    // 检查是否已分配
     const existing = await this.prisma.rolePermission.findUnique({
       where: {
         roleId_permissionId: {
-          roleId,
-          permissionId,
+          roleId: role.id,
+          permissionId: permission.id,
         },
       },
     });
@@ -317,16 +388,14 @@ export class RoleService {
     }
 
     const auditCtx = getAuditContext();
-
     await this.prisma.rolePermission.create({
       data: {
-        roleId,
-        permissionId,
-        grantedBy: auditCtx?.actorUserId,
+        roleId: role.id,
+        permissionId: permission.id,
+        grantedById: auditCtx?.actorUserId,
       },
     });
 
-    // 失效缓存
     await this.permissionCache.invalidateRoleCache(role.code);
 
     return { message: "Permission added successfully" };
@@ -335,14 +404,27 @@ export class RoleService {
   /**
    * 移除角色的权限
    */
-  async removePermission(roleId: number, permissionId: number) {
-    const role = await this.findOne(roleId);
+  async removePermission(rolePublicId: string, permissionPublicId: string) {
+    const role = await this.getRoleInternalOrThrow(rolePublicId);
+
+    const permission = await this.prisma.permission.findUnique({
+      where: { publicId: permissionPublicId },
+      select: { id: true },
+    });
+
+    if (!permission) {
+      throw new BusinessException({
+        code: ApiErrorCode.PERMISSION_NOT_FOUND,
+        message: "Permission not found",
+        status: HttpStatus.NOT_FOUND,
+      });
+    }
 
     const rolePermission = await this.prisma.rolePermission.findUnique({
       where: {
         roleId_permissionId: {
-          roleId,
-          permissionId,
+          roleId: role.id,
+          permissionId: permission.id,
         },
       },
     });
@@ -358,8 +440,8 @@ export class RoleService {
     await this.prisma.rolePermission.delete({
       where: {
         roleId_permissionId: {
-          roleId,
-          permissionId,
+          roleId: role.id,
+          permissionId: permission.id,
         },
       },
     });
@@ -368,5 +450,27 @@ export class RoleService {
     await this.permissionCache.invalidateRoleCache(role.code);
 
     return { message: "Permission removed successfully" };
+  }
+
+  private async getRoleInternalOrThrow(publicId: string): Promise<{
+    id: number;
+    publicId: string;
+    code: string;
+    type: RoleType;
+  }> {
+    const role = await this.prisma.soft.role.findUnique({
+      where: { publicId },
+      select: { id: true, publicId: true, code: true, type: true },
+    });
+
+    if (!role) {
+      throw new BusinessException({
+        code: ApiErrorCode.ROLE_NOT_FOUND,
+        message: "Role not found",
+        status: HttpStatus.NOT_FOUND,
+      });
+    }
+
+    return role;
   }
 }

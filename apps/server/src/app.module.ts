@@ -3,11 +3,14 @@ import { ConfigModule } from "@nestjs/config";
 import { APP_GUARD, APP_INTERCEPTOR, APP_PIPE } from "@nestjs/core";
 import { ThrottlerModule } from "@nestjs/throttler";
 import { PrometheusModule } from "@willsoto/nestjs-prometheus";
+import { randomUUID } from "crypto";
+import type { IncomingMessage, ServerResponse } from "http";
 import { LoggerModule } from "nestjs-pino";
 import { ZodValidationPipe } from "nestjs-zod";
 
 import { AppController } from "./app.controller";
 import { AppService } from "./app.service";
+import { CsrfGuard } from "./common/guards/csrf.guard";
 import { CustomThrottlerGuard } from "./common/guards/custom-throttler.guard";
 import { MaxLimitInterceptor } from "./common/interceptors/max-limit.interceptor";
 import { RedisModule } from "./common/redis/redis.module";
@@ -27,6 +30,12 @@ import { RoleModule } from "./modules/role/role.module";
 import { UserModule } from "./modules/user/user.module";
 import { WsModule } from "./modules/ws/ws.module";
 
+function isUuidV4(id: string): boolean {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+    id,
+  );
+}
+
 @Module({
   imports: [
     LoggerModule.forRootAsync({
@@ -35,6 +44,32 @@ import { WsModule } from "./modules/ws/ws.module";
       useFactory: (config: AppConfigService) => {
         return {
           pinoHttp: {
+            // Log format (Observability spec): timestamp/level/message/traceId/service
+            messageKey: "message",
+            formatters: {
+              level: (label: string) => ({ level: label }),
+            },
+            timestamp: () => `,"timestamp":"${new Date().toISOString()}"`,
+            base: {
+              service: "server",
+              environment: config.appEnv,
+            },
+            genReqId: (
+              req: IncomingMessage,
+              res: ServerResponse<IncomingMessage>,
+            ) => {
+              const incoming = req.headers["x-trace-id"];
+              const traceId =
+                typeof incoming === "string" && isUuidV4(incoming)
+                  ? incoming
+                  : randomUUID();
+              res.setHeader("X-Trace-Id", traceId);
+              return traceId;
+            },
+            customProps: (req: IncomingMessage) => {
+              const id = (req as { id?: unknown }).id;
+              return { traceId: typeof id === "string" ? id : undefined };
+            },
             level: config.isProduction ? "info" : "debug",
             transport: config.isProduction
               ? undefined
@@ -50,13 +85,8 @@ import { WsModule } from "./modules/ws/ws.module";
     }),
     PrometheusModule.register(),
     ConfigModule.forRoot({
-      // 本地开发使用 .env (Prisma CLI 要求)，其他环境使用 .env.{环境名}
-      envFilePath:
-        process.env.NODE_ENV === "production"
-          ? ".env.production"
-          : process.env.NODE_ENV === "staging"
-            ? ".env.staging"
-            : ".env",
+      // env 文件仅用于本地开发（.env 不提交）；线上环境通过平台/容器注入 process.env
+      envFilePath: ".env",
       validate: (config) => envSchema.parse(config),
       isGlobal: true,
     }),
@@ -98,6 +128,10 @@ import { WsModule } from "./modules/ws/ws.module";
     {
       provide: APP_GUARD,
       useClass: CustomThrottlerGuard,
+    },
+    {
+      provide: APP_GUARD,
+      useClass: CsrfGuard,
     },
     {
       provide: APP_GUARD,

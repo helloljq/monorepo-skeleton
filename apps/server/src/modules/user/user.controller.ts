@@ -4,7 +4,7 @@ import {
   Delete,
   Get,
   Param,
-  ParseIntPipe,
+  ParseUUIDPipe,
   Post,
   Query,
 } from "@nestjs/common";
@@ -27,7 +27,11 @@ export class UserController {
   @Get()
   @RequirePermissions("user:read")
   @ApiOperation({ summary: "用户列表" })
-  @ApiQuery({ name: "id", required: false, description: "用户ID（精确查询）" })
+  @ApiQuery({
+    name: "id",
+    required: false,
+    description: "用户 ID（Public ID，UUID，精确查询）",
+  })
   @ApiQuery({
     name: "email",
     required: false,
@@ -37,7 +41,7 @@ export class UserController {
   @ApiQuery({
     name: "roleId",
     required: false,
-    description: "角色ID（精确查询）",
+    description: "角色 ID（Public ID，UUID，精确查询）",
   })
   @ApiQuery({
     name: "status",
@@ -46,9 +50,9 @@ export class UserController {
   })
   @ApiQuery({ name: "page", required: false, description: "页码（从1开始）" })
   @ApiQuery({
-    name: "limit",
+    name: "pageSize",
     required: false,
-    description: "每页数量（1-1000）",
+    description: "每页数量（1-100）",
   })
   @ApiOkResponse({ description: "返回用户分页列表" })
   findAll(@Query() query: QueryUserDto) {
@@ -59,7 +63,7 @@ export class UserController {
   @RequirePermissions("user:read")
   @ApiOperation({ summary: "获取用户详情" })
   @ApiOkResponse({ description: "返回用户详情（含角色信息）" })
-  findOne(@Param("id", ParseIntPipe) id: number) {
+  findOne(@Param("id", new ParseUUIDPipe({ version: "4" })) id: string) {
     return this.userService.findOne(id);
   }
 
@@ -67,7 +71,7 @@ export class UserController {
   @RequirePermissions("user:read")
   @ApiOperation({ summary: "获取用户角色列表" })
   @ApiOkResponse({ description: "返回用户的角色列表" })
-  findUserRoles(@Param("id", ParseIntPipe) id: number) {
+  findUserRoles(@Param("id", new ParseUUIDPipe({ version: "4" })) id: string) {
     return this.userService.findUserRoles(id);
   }
 
@@ -76,7 +80,7 @@ export class UserController {
   @ApiOperation({ summary: "为用户分配角色" })
   @ApiOkResponse({ description: "角色分配成功" })
   assignRole(
-    @Param("id", ParseIntPipe) id: number,
+    @Param("id", new ParseUUIDPipe({ version: "4" })) id: string,
     @Body() dto: AssignRoleDto,
   ) {
     return this.userService.assignRole(id, dto);
@@ -87,7 +91,7 @@ export class UserController {
   @ApiOperation({ summary: "批量为用户分配角色（替换模式）" })
   @ApiOkResponse({ description: "角色分配成功" })
   assignRoles(
-    @Param("id", ParseIntPipe) id: number,
+    @Param("id", new ParseUUIDPipe({ version: "4" })) id: string,
     @Body() dto: AssignRolesDto,
   ) {
     return this.userService.assignRoles(id, dto.roleIds);
@@ -98,8 +102,8 @@ export class UserController {
   @ApiOperation({ summary: "移除用户的角色" })
   @ApiOkResponse({ description: "角色移除成功" })
   removeRole(
-    @Param("id", ParseIntPipe) id: number,
-    @Param("roleId", ParseIntPipe) roleId: number,
+    @Param("id", new ParseUUIDPipe({ version: "4" })) id: string,
+    @Param("roleId", new ParseUUIDPipe({ version: "4" })) roleId: string,
   ) {
     return this.userService.removeRole(id, roleId);
   }

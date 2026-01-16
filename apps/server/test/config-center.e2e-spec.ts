@@ -17,10 +17,9 @@ import { PrismaService } from "../src/database/prisma/prisma.service";
 type RedisClient = import("ioredis").default;
 
 interface ApiResponse<T = unknown> {
-  code: number;
+  code: string;
   message: string;
   data: T;
-  timestamp: number;
 }
 
 interface LoginResponse {
@@ -77,7 +76,7 @@ describe("Config Center (e2e)", () => {
     app =
       moduleFixture.createNestApplication() as unknown as INestApplication<App>;
     app.enableShutdownHooks();
-    app.setGlobalPrefix("api/v1");
+    app.setGlobalPrefix("v1");
 
     const httpAdapter = app.get<HttpAdapterHost>(HttpAdapterHost);
     app.useGlobalFilters(
@@ -90,7 +89,7 @@ describe("Config Center (e2e)", () => {
     redis = app.get<RedisClient>(REDIS_CLIENT);
     app.useGlobalInterceptors(
       new IdempotencyInterceptor(reflector, redis, configService),
-      new AuditContextInterceptor(),
+      new AuditContextInterceptor(reflector),
       new TransformInterceptor(reflector),
     );
 
@@ -136,13 +135,13 @@ describe("Config Center (e2e)", () => {
 
     // 注册测试用户
     const registerResponse = await request(app.getHttpServer())
-      .post("/api/v1/auth/register")
+      .post("/v1/auth/register")
       .send(testUser);
     testUserId = (registerResponse.body as ApiResponse<{ id: number }>).data.id;
 
     // 登录获取 token
     const loginResponse = await request(app.getHttpServer())
-      .post("/api/v1/auth/login")
+      .post("/v1/auth/login")
       .send({
         email: testUser.email,
         password: testUser.password,
@@ -171,9 +170,9 @@ describe("Config Center (e2e)", () => {
   });
 
   describe("命名空间管理", () => {
-    it("POST /api/v1/config/namespaces - 创建命名空间", async () => {
+    it("POST /v1/config/namespaces - 创建命名空间", async () => {
       const response = await request(app.getHttpServer())
-        .post("/api/v1/config/namespaces")
+        .post("/v1/config/namespaces")
         .set("Authorization", `Bearer ${authToken}`)
         .send(TEST_NAMESPACE)
         .expect(HttpStatus.CREATED);
@@ -187,9 +186,9 @@ describe("Config Center (e2e)", () => {
       );
     });
 
-    it("GET /api/v1/config/namespaces - 查询命名空间列表", async () => {
+    it("GET /v1/config/namespaces - 查询命名空间列表", async () => {
       const response = await request(app.getHttpServer())
-        .get("/api/v1/config/namespaces")
+        .get("/v1/config/namespaces")
         .set("Authorization", `Bearer ${authToken}`)
         .expect(HttpStatus.OK);
 
@@ -200,9 +199,9 @@ describe("Config Center (e2e)", () => {
       );
     });
 
-    it("GET /api/v1/config/namespaces/:name - 获取命名空间详情", async () => {
+    it("GET /v1/config/namespaces/:name - 获取命名空间详情", async () => {
       const response = await request(app.getHttpServer())
-        .get(`/api/v1/config/namespaces/${TEST_NAMESPACE.name}`)
+        .get(`/v1/config/namespaces/${TEST_NAMESPACE.name}`)
         .set("Authorization", `Bearer ${authToken}`)
         .expect(HttpStatus.OK);
 
@@ -213,9 +212,9 @@ describe("Config Center (e2e)", () => {
   });
 
   describe("配置项 CRUD", () => {
-    it("POST /api/v1/config/:namespace - 创建配置项", async () => {
+    it("POST /v1/config/:namespace - 创建配置项", async () => {
       const response = await request(app.getHttpServer())
-        .post(`/api/v1/config/${TEST_NAMESPACE.name}`)
+        .post(`/v1/config/${TEST_NAMESPACE.name}`)
         .set("Authorization", `Bearer ${authToken}`)
         .send(TEST_CONFIG)
         .expect(HttpStatus.CREATED);
@@ -229,9 +228,9 @@ describe("Config Center (e2e)", () => {
       expect((response.body as ApiResponse).data).toHaveProperty("configHash");
     });
 
-    it("GET /api/v1/config/:namespace/:key - 获取单个配置", async () => {
+    it("GET /v1/config/:namespace/:key - 获取单个配置", async () => {
       const response = await request(app.getHttpServer())
-        .get(`/api/v1/config/${TEST_NAMESPACE.name}/${TEST_CONFIG.key}`)
+        .get(`/v1/config/${TEST_NAMESPACE.name}/${TEST_CONFIG.key}`)
         .set("Authorization", `Bearer ${authToken}`)
         .expect(HttpStatus.OK);
 
@@ -241,9 +240,9 @@ describe("Config Center (e2e)", () => {
       );
     });
 
-    it("GET /api/v1/config/:namespace - 获取命名空间所有配置", async () => {
+    it("GET /v1/config/:namespace - 获取命名空间所有配置", async () => {
       const response = await request(app.getHttpServer())
-        .get(`/api/v1/config/${TEST_NAMESPACE.name}`)
+        .get(`/v1/config/${TEST_NAMESPACE.name}`)
         .set("Authorization", `Bearer ${authToken}`)
         .expect(HttpStatus.OK);
 
@@ -251,11 +250,11 @@ describe("Config Center (e2e)", () => {
       expect((response.body as ApiResponse).data.length).toBeGreaterThan(0);
     });
 
-    it("PUT /api/v1/config/:namespace/:key - 更新配置", async () => {
+    it("PUT /v1/config/:namespace/:key - 更新配置", async () => {
       const updatedValue = { feature: "disabled", threshold: 200 };
 
       const response = await request(app.getHttpServer())
-        .put(`/api/v1/config/${TEST_NAMESPACE.name}/${TEST_CONFIG.key}`)
+        .put(`/v1/config/${TEST_NAMESPACE.name}/${TEST_CONFIG.key}`)
         .set("Authorization", `Bearer ${authToken}`)
         .send({ value: updatedValue })
         .expect(HttpStatus.OK);
@@ -264,9 +263,9 @@ describe("Config Center (e2e)", () => {
       expect((response.body as ApiResponse).data.version).toBe(2);
     });
 
-    it("GET /api/v1/config/:namespace/:key/meta - 获取配置元数据", async () => {
+    it("GET /v1/config/:namespace/:key/meta - 获取配置元数据", async () => {
       const response = await request(app.getHttpServer())
-        .get(`/api/v1/config/${TEST_NAMESPACE.name}/${TEST_CONFIG.key}/meta`)
+        .get(`/v1/config/${TEST_NAMESPACE.name}/${TEST_CONFIG.key}/meta`)
         .set("Authorization", `Bearer ${authToken}`)
         .expect(HttpStatus.OK);
 
@@ -291,10 +290,10 @@ describe("Config Center (e2e)", () => {
     const skipIfNoEncryption = !process.env.CONFIG_ENCRYPTION_KEY;
 
     (skipIfNoEncryption ? it.skip : it)(
-      "POST /api/v1/config/:namespace - 创建加密配置",
+      "POST /v1/config/:namespace - 创建加密配置",
       async () => {
         const response = await request(app.getHttpServer())
-          .post(`/api/v1/config/${TEST_NAMESPACE.name}`)
+          .post(`/v1/config/${TEST_NAMESPACE.name}`)
           .set("Authorization", `Bearer ${authToken}`)
           .send(ENCRYPTED_CONFIG)
           .expect(HttpStatus.CREATED);
@@ -308,10 +307,10 @@ describe("Config Center (e2e)", () => {
     );
 
     (skipIfNoEncryption ? it.skip : it)(
-      "GET /api/v1/config/:namespace/:key - 获取加密配置应返回解密值",
+      "GET /v1/config/:namespace/:key - 获取加密配置应返回解密值",
       async () => {
         const response = await request(app.getHttpServer())
-          .get(`/api/v1/config/${TEST_NAMESPACE.name}/${ENCRYPTED_CONFIG.key}`)
+          .get(`/v1/config/${TEST_NAMESPACE.name}/${ENCRYPTED_CONFIG.key}`)
           .set("Authorization", `Bearer ${authToken}`)
           .expect(HttpStatus.OK);
 
@@ -346,9 +345,9 @@ describe("Config Center (e2e)", () => {
       },
     };
 
-    it("POST /api/v1/config/:namespace - 创建带 Schema 的配置应成功", async () => {
+    it("POST /v1/config/:namespace - 创建带 Schema 的配置应成功", async () => {
       const response = await request(app.getHttpServer())
-        .post(`/api/v1/config/${TEST_NAMESPACE.name}`)
+        .post(`/v1/config/${TEST_NAMESPACE.name}`)
         .set("Authorization", `Bearer ${authToken}`)
         .send(CONFIG_WITH_SCHEMA)
         .expect(HttpStatus.CREATED);
@@ -356,7 +355,7 @@ describe("Config Center (e2e)", () => {
       expect((response.body as ApiResponse).data.jsonSchema).toBeDefined();
     });
 
-    it("POST /api/v1/config/:namespace - 创建不符合 Schema 的配置应失败", async () => {
+    it("POST /v1/config/:namespace - 创建不符合 Schema 的配置应失败", async () => {
       const invalidConfig = {
         ...CONFIG_WITH_SCHEMA,
         key: "invalid_user",
@@ -368,7 +367,7 @@ describe("Config Center (e2e)", () => {
       };
 
       await request(app.getHttpServer())
-        .post(`/api/v1/config/${TEST_NAMESPACE.name}`)
+        .post(`/v1/config/${TEST_NAMESPACE.name}`)
         .set("Authorization", `Bearer ${authToken}`)
         .send(invalidConfig)
         .expect(HttpStatus.BAD_REQUEST);
@@ -376,9 +375,9 @@ describe("Config Center (e2e)", () => {
   });
 
   describe("版本历史与回滚", () => {
-    it("GET /api/v1/config/:namespace/:key/history - 获取配置历史", async () => {
+    it("GET /v1/config/:namespace/:key/history - 获取配置历史", async () => {
       const response = await request(app.getHttpServer())
-        .get(`/api/v1/config/${TEST_NAMESPACE.name}/${TEST_CONFIG.key}/history`)
+        .get(`/v1/config/${TEST_NAMESPACE.name}/${TEST_CONFIG.key}/history`)
         .set("Authorization", `Bearer ${authToken}`)
         .expect(HttpStatus.OK);
 
@@ -392,11 +391,9 @@ describe("Config Center (e2e)", () => {
       );
     });
 
-    it("POST /api/v1/config/:namespace/:key/rollback/:version - 回滚配置", async () => {
+    it("POST /v1/config/:namespace/:key/rollback/:version - 回滚配置", async () => {
       const response = await request(app.getHttpServer())
-        .post(
-          `/api/v1/config/${TEST_NAMESPACE.name}/${TEST_CONFIG.key}/rollback/1`,
-        )
+        .post(`/v1/config/${TEST_NAMESPACE.name}/${TEST_CONFIG.key}/rollback/1`)
         .set("Authorization", `Bearer ${authToken}`)
         .send({ changeNote: "E2E 测试回滚" })
         .expect(HttpStatus.CREATED);
@@ -409,10 +406,10 @@ describe("Config Center (e2e)", () => {
   });
 
   describe("批量操作", () => {
-    it("GET /api/v1/config/:namespace/batch?keys=a,b - 批量获取配置", async () => {
+    it("GET /v1/config/:namespace/batch?keys=a,b - 批量获取配置", async () => {
       const response = await request(app.getHttpServer())
         .get(
-          `/api/v1/config/${TEST_NAMESPACE.name}/batch?keys=${TEST_CONFIG.key},user_profile`,
+          `/v1/config/${TEST_NAMESPACE.name}/batch?keys=${TEST_CONFIG.key},user_profile`,
         )
         .set("Authorization", `Bearer ${authToken}`)
         .expect(HttpStatus.OK);
@@ -421,7 +418,7 @@ describe("Config Center (e2e)", () => {
       expect((response.body as ApiResponse).data.length).toBe(2); // 应该返回2个配置
     });
 
-    it("POST /api/v1/config/:namespace/batch - 批量创建/更新配置", async () => {
+    it("POST /v1/config/:namespace/batch - 批量创建/更新配置", async () => {
       const batchData = {
         items: [
           {
@@ -444,7 +441,7 @@ describe("Config Center (e2e)", () => {
       };
 
       const response = await request(app.getHttpServer())
-        .post(`/api/v1/config/${TEST_NAMESPACE.name}/batch`)
+        .post(`/v1/config/${TEST_NAMESPACE.name}/batch`)
         .set("Authorization", `Bearer ${authToken}`)
         .send(batchData)
         .expect(HttpStatus.OK);
@@ -459,24 +456,24 @@ describe("Config Center (e2e)", () => {
   });
 
   describe("错误处理", () => {
-    it("GET /api/v1/config/nonexistent/:key - 获取不存在的配置应返回 404", async () => {
+    it("GET /v1/config/nonexistent/:key - 获取不存在的配置应返回 404", async () => {
       await request(app.getHttpServer())
-        .get(`/api/v1/config/nonexistent/test_key`)
+        .get(`/v1/config/nonexistent/test_key`)
         .set("Authorization", `Bearer ${authToken}`)
         .expect(HttpStatus.NOT_FOUND);
     });
 
-    it("POST /api/v1/config/:namespace - 创建重复配置应失败", async () => {
+    it("POST /v1/config/:namespace - 创建重复配置应失败", async () => {
       await request(app.getHttpServer())
-        .post(`/api/v1/config/${TEST_NAMESPACE.name}`)
+        .post(`/v1/config/${TEST_NAMESPACE.name}`)
         .set("Authorization", `Bearer ${authToken}`)
         .send(TEST_CONFIG)
         .expect(HttpStatus.CONFLICT);
     });
 
-    it("POST /api/v1/config/namespaces - 使用保留字创建命名空间应失败", async () => {
+    it("POST /v1/config/namespaces - 使用保留字创建命名空间应失败", async () => {
       await request(app.getHttpServer())
-        .post("/api/v1/config/namespaces")
+        .post("/v1/config/namespaces")
         .set("Authorization", `Bearer ${authToken}`)
         .send({
           name: "batch", // 保留字
@@ -488,30 +485,30 @@ describe("Config Center (e2e)", () => {
   });
 
   describe("清理测试数据", () => {
-    it("DELETE /api/v1/config/:namespace/:key - 删除配置项", async () => {
+    it("DELETE /v1/config/:namespace/:key - 删除配置项", async () => {
       await request(app.getHttpServer())
-        .delete(`/api/v1/config/${TEST_NAMESPACE.name}/${TEST_CONFIG.key}`)
+        .delete(`/v1/config/${TEST_NAMESPACE.name}/${TEST_CONFIG.key}`)
         .set("Authorization", `Bearer ${authToken}`)
         .expect(HttpStatus.NO_CONTENT);
     });
 
-    it("DELETE /api/v1/config/namespaces/:name - 删除命名空间", async () => {
+    it("DELETE /v1/config/namespaces/:name - 删除命名空间", async () => {
       // 先删除所有配置项
       const configsResponse = await request(app.getHttpServer())
-        .get(`/api/v1/config/${TEST_NAMESPACE.name}`)
+        .get(`/v1/config/${TEST_NAMESPACE.name}`)
         .set("Authorization", `Bearer ${authToken}`);
 
       for (const config of (
         configsResponse.body as ApiResponse<Array<{ key: string }>>
       ).data) {
         await request(app.getHttpServer())
-          .delete(`/api/v1/config/${TEST_NAMESPACE.name}/${config.key}`)
+          .delete(`/v1/config/${TEST_NAMESPACE.name}/${config.key}`)
           .set("Authorization", `Bearer ${authToken}`);
       }
 
       // 删除命名空间
       await request(app.getHttpServer())
-        .delete(`/api/v1/config/namespaces/${TEST_NAMESPACE.name}`)
+        .delete(`/v1/config/namespaces/${TEST_NAMESPACE.name}`)
         .set("Authorization", `Bearer ${authToken}`)
         .expect(HttpStatus.NO_CONTENT);
     });

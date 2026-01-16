@@ -7,22 +7,24 @@ import {
 } from "@nestjs/common";
 import { Logger } from "@nestjs/common";
 import { HttpAdapterHost } from "@nestjs/core";
-import { Response } from "express";
+import type { Response } from "express";
 
 import { BusinessException } from "../errors/business.exception";
-import { ApiErrorCode } from "../errors/error-codes";
+import {
+  ApiErrorCode,
+  type ApiErrorCode as ApiErrorCodeType,
+} from "../errors/error-codes";
 
 interface ResponseBody {
-  code: number;
+  code: ApiErrorCodeType;
   message: string;
   data: unknown;
-  timestamp: number;
 }
 
-function defaultCodeFromHttpStatus(status: HttpStatus): number {
+function defaultCodeFromHttpStatus(status: HttpStatus): ApiErrorCodeType {
   switch (status) {
     case HttpStatus.BAD_REQUEST:
-      return ApiErrorCode.BAD_REQUEST;
+      return ApiErrorCode.VALIDATION_ERROR;
     case HttpStatus.UNAUTHORIZED:
       return ApiErrorCode.UNAUTHORIZED;
     case HttpStatus.FORBIDDEN:
@@ -45,7 +47,6 @@ function defaultCodeFromHttpStatus(status: HttpStatus): number {
 interface ValidationErrorDetails {
   field: string;
   message: string;
-  code?: string;
 }
 
 function extractValidationErrors(
@@ -57,7 +58,22 @@ function extractValidationErrors(
   // 检查是否包含 errors 数组（自定义 Zod 验证管道的格式）
   const maybeErrors: unknown = (resp as { errors?: unknown }).errors;
   if (Array.isArray(maybeErrors) && maybeErrors.length > 0) {
-    return maybeErrors as ValidationErrorDetails[];
+    const normalized = maybeErrors
+      .map((e: unknown): ValidationErrorDetails | null => {
+        if (!e || typeof e !== "object") return null;
+        const record = e as Record<string, unknown>;
+        const message =
+          typeof record.message === "string" ? record.message : "Invalid value";
+        const field =
+          typeof record.field === "string"
+            ? record.field
+            : Array.isArray(record.path) && typeof record.path[0] === "string"
+              ? record.path[0]
+              : "unknown";
+        return { field, message };
+      })
+      .filter((e): e is ValidationErrorDetails => e !== null);
+    return normalized.length > 0 ? normalized : null;
   }
 
   // 兼容旧格式：message 数组
@@ -103,12 +119,12 @@ export class AllExceptionsFilter implements ExceptionFilter {
         ? (exception.getStatus() as HttpStatus)
         : HttpStatus.INTERNAL_SERVER_ERROR;
 
-    let code = defaultCodeFromHttpStatus(httpStatus);
+    let code: ApiErrorCodeType = defaultCodeFromHttpStatus(httpStatus);
     let message = "Internal Server Error";
     let data: unknown = null;
 
     if (exception instanceof BusinessException) {
-      code = exception.businessCode;
+      code = exception.code;
       message = extractHttpExceptionMessage(exception);
       const resp: unknown = exception.getResponse();
       if (resp && typeof resp === "object") {
@@ -121,10 +137,14 @@ export class AllExceptionsFilter implements ExceptionFilter {
       if (httpStatus === HttpStatus.BAD_REQUEST) {
         const validationErrors = extractValidationErrors(exception);
         if (validationErrors && validationErrors.length > 0) {
-          // 将详细的验证错误信息放到 data 字段中
-          data = { errors: validationErrors };
-          // 如果有多个错误，message 保持为合并后的字符串
-          // 前端可以选择显示 message 或者 data.errors
+          code = ApiErrorCode.VALIDATION_ERROR;
+          data = {
+            errors: validationErrors.map((e) => ({
+              field: e.field,
+              message: e.message,
+            })),
+          };
+          message = "参数校验失败";
         }
       }
     }
@@ -140,7 +160,6 @@ export class AllExceptionsFilter implements ExceptionFilter {
       code,
       message: message || "Error",
       data,
-      timestamp: Date.now(),
     };
 
     httpAdapter.reply(response, responseBody, httpStatus);

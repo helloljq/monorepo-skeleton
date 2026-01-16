@@ -8,8 +8,17 @@ import { Env } from "./env.schema";
 export class AppConfigService {
   constructor(private readonly configService: ConfigService<Env, true>) {}
 
+  get appEnv(): Env["APP_ENV"] {
+    return this.configService.get("APP_ENV");
+  }
+
+  /** staging/prod 视为生产态（关闭 pretty log、Cookie Secure 等） */
   get isProduction(): boolean {
-    return this.configService.get("NODE_ENV") === "production";
+    return this.appEnv !== "dev";
+  }
+
+  get isProd(): boolean {
+    return this.appEnv === "prod";
   }
 
   get port(): number {

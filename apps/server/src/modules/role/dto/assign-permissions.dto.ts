@@ -3,7 +3,7 @@ import { z } from "zod";
 
 export const AssignPermissionsSchema = z.object({
   permissionIds: z
-    .array(z.number().int().positive())
+    .array(z.string().uuid())
     .min(1)
     .max(100)
     .refine((ids) => new Set(ids).size === ids.length, {
@@ -16,7 +16,7 @@ export class AssignPermissionsDto extends createZodDto(
 ) {}
 
 export const RemovePermissionSchema = z.object({
-  permissionId: z.coerce.number().int().positive(),
+  permissionId: z.string().uuid(),
 });
 
 export class RemovePermissionDto extends createZodDto(RemovePermissionSchema) {}

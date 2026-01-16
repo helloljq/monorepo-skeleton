@@ -56,10 +56,10 @@ docker compose up -d
 
 ## 端口分配
 
-| 服务 | dev | staging | production |
-|------|-----|---------|------------|
-| PostgreSQL | 5400 | 5410 | 5420 |
-| Redis | 6300 | 6310 | 6320 |
+| 服务       | dev  | staging | production |
+| ---------- | ---- | ------- | ---------- |
+| PostgreSQL | 5400 | 5410    | 5420       |
+| Redis      | 6300 | 6310    | 6320       |
 
 ## 连接测试
 
@@ -73,4 +73,4 @@ redis-cli -h nas -p 6300 -a 密码 ping
 
 ## 详细文档
 
-参见 [数据库配置文档](../docs/deployment/database.md)
+参见 [数据库配置文档](../docs/runbooks/deployment/database.md)

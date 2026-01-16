@@ -1,203 +1,283 @@
--- CreateEnum
-CREATE TYPE "ConfigChangeType" AS ENUM ('CREATE', 'UPDATE', 'DELETE', 'ROLLBACK');
+-- Enable UUID generation for public_id
+CREATE EXTENSION IF NOT EXISTS "pgcrypto";
 
--- CreateEnum
-CREATE TYPE "ConfigValueType" AS ENUM ('JSON', 'STRING', 'NUMBER', 'BOOLEAN');
+-- Enums (snake_case object names, values kept as stable constants)
+CREATE TYPE "config_change_type" AS ENUM ('CREATE', 'UPDATE', 'DELETE', 'ROLLBACK');
+CREATE TYPE "config_value_type" AS ENUM ('JSON', 'STRING', 'NUMBER', 'BOOLEAN');
+CREATE TYPE "identity_provider" AS ENUM ('EMAIL', 'PHONE', 'WECHAT_OPEN', 'WECHAT_UNION', 'WECHAT_MINI', 'WECHAT_MP');
+CREATE TYPE "role_type" AS ENUM ('SYSTEM', 'CUSTOM');
+CREATE TYPE "user_status" AS ENUM ('ACTIVE', 'DISABLED', 'PENDING');
 
--- CreateEnum
-CREATE TYPE "IdentityProvider" AS ENUM ('EMAIL', 'PHONE', 'WECHAT_OPEN', 'WECHAT_UNION', 'WECHAT_MINI', 'WECHAT_MP');
-
--- CreateEnum
-CREATE TYPE "RoleType" AS ENUM ('SYSTEM', 'CUSTOM');
-
--- CreateEnum
-CREATE TYPE "UserStatus" AS ENUM ('ACTIVE', 'DISABLED', 'PENDING');
-
--- CreateTable
-CREATE TABLE "AuditLog" (
-    "id" SERIAL NOT NULL,
-    "action" TEXT NOT NULL,
-    "operation" TEXT NOT NULL,
-    "entityType" TEXT NOT NULL,
-    "entityId" TEXT NOT NULL,
-    "actorUserId" INTEGER,
-    "ip" TEXT,
-    "userAgent" TEXT,
-    "requestId" TEXT,
-    "before" JSONB,
-    "after" JSONB,
-    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-
-    CONSTRAINT "AuditLog_pkey" PRIMARY KEY ("id")
+-- Users
+CREATE TABLE "users" (
+  "id" SERIAL NOT NULL,
+  "public_id" UUID NOT NULL DEFAULT gen_random_uuid(),
+  "email" TEXT NOT NULL,
+  "name" TEXT,
+  "password" TEXT NOT NULL,
+  "avatar" VARCHAR(500),
+  "status" "user_status" NOT NULL DEFAULT 'ACTIVE',
+  "deleted_at" TIMESTAMPTZ(3),
+  "deleted_by_id" INTEGER,
+  "delete_reason" VARCHAR(500),
+  "created_at" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  "updated_at" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT "users_pkey" PRIMARY KEY ("id")
 );
 
--- CreateTable
-CREATE TABLE "ConfigHistory" (
-    "id" SERIAL NOT NULL,
-    "configId" INTEGER NOT NULL,
-    "version" INTEGER NOT NULL,
-    "value" JSONB NOT NULL,
-    "configHash" VARCHAR(64) NOT NULL,
-    "changeType" "ConfigChangeType" NOT NULL,
-    "changeNote" VARCHAR(500),
-    "changedById" INTEGER,
-    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-
-    CONSTRAINT "ConfigHistory_pkey" PRIMARY KEY ("id")
+-- Roles
+CREATE TABLE "roles" (
+  "id" SERIAL NOT NULL,
+  "public_id" UUID NOT NULL DEFAULT gen_random_uuid(),
+  "code" VARCHAR(50) NOT NULL,
+  "name" VARCHAR(100) NOT NULL,
+  "description" VARCHAR(500),
+  "type" "role_type" NOT NULL DEFAULT 'CUSTOM',
+  "is_enabled" BOOLEAN NOT NULL DEFAULT true,
+  "created_at" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  "updated_at" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  "deleted_at" TIMESTAMPTZ(3),
+  "deleted_by_id" INTEGER,
+  "delete_reason" VARCHAR(500),
+  CONSTRAINT "roles_pkey" PRIMARY KEY ("id")
 );
 
--- CreateTable
-CREATE TABLE "ConfigItem" (
-    "id" SERIAL NOT NULL,
-    "namespaceId" INTEGER NOT NULL,
-    "key" VARCHAR(100) NOT NULL,
-    "value" JSONB NOT NULL,
-    "valueType" "ConfigValueType" NOT NULL DEFAULT 'JSON',
-    "description" VARCHAR(500),
-    "isEncrypted" BOOLEAN NOT NULL DEFAULT false,
-    "isPublic" BOOLEAN NOT NULL DEFAULT false,
-    "jsonSchema" JSONB,
-    "version" INTEGER NOT NULL DEFAULT 1,
-    "configHash" VARCHAR(64) NOT NULL,
-    "isEnabled" BOOLEAN NOT NULL DEFAULT true,
-    "deletedAt" TIMESTAMP(3),
-    "deletedById" INTEGER,
-    "deleteReason" VARCHAR(500),
-    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "updatedAt" TIMESTAMP(3) NOT NULL,
-
-    CONSTRAINT "ConfigItem_pkey" PRIMARY KEY ("id")
+-- Permissions
+CREATE TABLE "permissions" (
+  "id" SERIAL NOT NULL,
+  "public_id" UUID NOT NULL DEFAULT gen_random_uuid(),
+  "code" VARCHAR(100) NOT NULL,
+  "name" VARCHAR(100) NOT NULL,
+  "description" VARCHAR(500),
+  "resource" VARCHAR(50) NOT NULL,
+  "action" VARCHAR(50) NOT NULL,
+  "module" VARCHAR(50),
+  "is_enabled" BOOLEAN NOT NULL DEFAULT true,
+  "created_at" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  "updated_at" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT "permissions_pkey" PRIMARY KEY ("id")
 );
 
--- CreateTable
-CREATE TABLE "ConfigNamespace" (
-    "id" SERIAL NOT NULL,
-    "name" VARCHAR(50) NOT NULL,
-    "displayName" VARCHAR(100) NOT NULL,
-    "description" VARCHAR(500),
-    "isEnabled" BOOLEAN NOT NULL DEFAULT true,
-    "deletedAt" TIMESTAMP(3),
-    "deletedById" INTEGER,
-    "deleteReason" VARCHAR(500),
-    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "updatedAt" TIMESTAMP(3) NOT NULL,
-
-    CONSTRAINT "ConfigNamespace_pkey" PRIMARY KEY ("id")
+-- Dictionaries
+CREATE TABLE "dictionaries" (
+  "id" SERIAL NOT NULL,
+  "public_id" UUID NOT NULL DEFAULT gen_random_uuid(),
+  "type" VARCHAR(50) NOT NULL,
+  "key" VARCHAR(100) NOT NULL,
+  "value" JSONB NOT NULL,
+  "label" VARCHAR(100) NOT NULL,
+  "description" VARCHAR(500),
+  "sort" INTEGER NOT NULL DEFAULT 0,
+  "is_enabled" BOOLEAN NOT NULL DEFAULT true,
+  "deleted_at" TIMESTAMPTZ(3),
+  "deleted_by_id" INTEGER,
+  "delete_reason" VARCHAR(500),
+  "created_at" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  "updated_at" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  "version" VARCHAR(20),
+  "config_hash" VARCHAR(64),
+  CONSTRAINT "dictionaries_pkey" PRIMARY KEY ("id")
 );
 
--- CreateTable
-CREATE TABLE "Dictionary" (
-    "id" SERIAL NOT NULL,
-    "type" VARCHAR(50) NOT NULL,
-    "key" VARCHAR(100) NOT NULL,
-    "value" JSONB NOT NULL,
-    "label" VARCHAR(100) NOT NULL,
-    "description" VARCHAR(500),
-    "sort" INTEGER NOT NULL DEFAULT 0,
-    "isEnabled" BOOLEAN NOT NULL DEFAULT true,
-    "deletedAt" TIMESTAMP(3),
-    "deletedById" INTEGER,
-    "deleteReason" VARCHAR(500),
-    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "updatedAt" TIMESTAMP(3) NOT NULL,
-    "version" VARCHAR(20),
-    "configHash" VARCHAR(64),
-
-    CONSTRAINT "Dictionary_pkey" PRIMARY KEY ("id")
+-- Config namespaces
+CREATE TABLE "config_namespaces" (
+  "id" SERIAL NOT NULL,
+  "public_id" UUID NOT NULL DEFAULT gen_random_uuid(),
+  "name" VARCHAR(50) NOT NULL,
+  "display_name" VARCHAR(100) NOT NULL,
+  "description" VARCHAR(500),
+  "is_enabled" BOOLEAN NOT NULL DEFAULT true,
+  "deleted_at" TIMESTAMPTZ(3),
+  "deleted_by_id" INTEGER,
+  "delete_reason" VARCHAR(500),
+  "created_at" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  "updated_at" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT "config_namespaces_pkey" PRIMARY KEY ("id")
 );
 
--- CreateTable
-CREATE TABLE "Permission" (
-    "id" SERIAL NOT NULL,
-    "code" VARCHAR(100) NOT NULL,
-    "name" VARCHAR(100) NOT NULL,
-    "description" VARCHAR(500),
-    "resource" VARCHAR(50) NOT NULL,
-    "action" VARCHAR(50) NOT NULL,
-    "module" VARCHAR(50),
-    "isEnabled" BOOLEAN NOT NULL DEFAULT true,
-    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "updatedAt" TIMESTAMP(3) NOT NULL,
-
-    CONSTRAINT "Permission_pkey" PRIMARY KEY ("id")
+-- Config items
+CREATE TABLE "config_items" (
+  "id" SERIAL NOT NULL,
+  "public_id" UUID NOT NULL DEFAULT gen_random_uuid(),
+  "namespace_id" INTEGER NOT NULL,
+  "key" VARCHAR(100) NOT NULL,
+  "value" JSONB NOT NULL,
+  "value_type" "config_value_type" NOT NULL DEFAULT 'JSON',
+  "description" VARCHAR(500),
+  "is_encrypted" BOOLEAN NOT NULL DEFAULT false,
+  "is_public" BOOLEAN NOT NULL DEFAULT false,
+  "json_schema" JSONB,
+  "version" INTEGER NOT NULL DEFAULT 1,
+  "config_hash" VARCHAR(64) NOT NULL,
+  "is_enabled" BOOLEAN NOT NULL DEFAULT true,
+  "deleted_at" TIMESTAMPTZ(3),
+  "deleted_by_id" INTEGER,
+  "delete_reason" VARCHAR(500),
+  "created_at" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  "updated_at" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT "config_items_pkey" PRIMARY KEY ("id")
 );
 
--- CreateTable
-CREATE TABLE "Role" (
-    "id" SERIAL NOT NULL,
-    "code" VARCHAR(50) NOT NULL,
-    "name" VARCHAR(100) NOT NULL,
-    "description" VARCHAR(500),
-    "type" "RoleType" NOT NULL DEFAULT 'CUSTOM',
-    "isEnabled" BOOLEAN NOT NULL DEFAULT true,
-    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "updatedAt" TIMESTAMP(3) NOT NULL,
-    "deletedAt" TIMESTAMP(3),
-    "deletedById" INTEGER,
-    "deleteReason" VARCHAR(500),
-
-    CONSTRAINT "Role_pkey" PRIMARY KEY ("id")
+-- Config histories
+CREATE TABLE "config_histories" (
+  "id" SERIAL NOT NULL,
+  "config_id" INTEGER NOT NULL,
+  "version" INTEGER NOT NULL,
+  "value" JSONB NOT NULL,
+  "config_hash" VARCHAR(64) NOT NULL,
+  "change_type" "config_change_type" NOT NULL,
+  "change_note" VARCHAR(500),
+  "changed_by_id" INTEGER,
+  "created_at" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT "config_histories_pkey" PRIMARY KEY ("id")
 );
 
--- CreateTable
-CREATE TABLE "RolePermission" (
-    "id" SERIAL NOT NULL,
-    "roleId" INTEGER NOT NULL,
-    "permissionId" INTEGER NOT NULL,
-    "grantedBy" INTEGER,
-    "grantedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-
-    CONSTRAINT "RolePermission_pkey" PRIMARY KEY ("id")
+-- User identities
+CREATE TABLE "user_identities" (
+  "id" SERIAL NOT NULL,
+  "public_id" UUID NOT NULL DEFAULT gen_random_uuid(),
+  "user_id" INTEGER NOT NULL,
+  "provider" "identity_provider" NOT NULL,
+  "provider_id" VARCHAR(255) NOT NULL,
+  "credential" VARCHAR(500),
+  "credential_exp" TIMESTAMPTZ(3),
+  "metadata" JSONB,
+  "verified" BOOLEAN NOT NULL DEFAULT false,
+  "verified_at" TIMESTAMPTZ(3),
+  "created_at" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  "updated_at" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT "user_identities_pkey" PRIMARY KEY ("id")
 );
 
--- CreateTable
-CREATE TABLE "User" (
-    "id" SERIAL NOT NULL,
-    "email" TEXT NOT NULL,
-    "name" TEXT,
-    "password" TEXT NOT NULL,
-    "deletedAt" TIMESTAMP(3),
-    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "updatedAt" TIMESTAMP(3) NOT NULL,
-    "deletedById" INTEGER,
-    "deleteReason" TEXT,
-    "avatar" VARCHAR(500),
-    "status" "UserStatus" NOT NULL DEFAULT 'ACTIVE',
-
-    CONSTRAINT "User_pkey" PRIMARY KEY ("id")
+-- User roles
+CREATE TABLE "user_roles" (
+  "id" SERIAL NOT NULL,
+  "user_id" INTEGER NOT NULL,
+  "role_id" INTEGER NOT NULL,
+  "granted_by_id" INTEGER,
+  "granted_at" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  "expires_at" TIMESTAMPTZ(3),
+  CONSTRAINT "user_roles_pkey" PRIMARY KEY ("id")
 );
 
--- CreateTable
-CREATE TABLE "UserIdentity" (
-    "id" SERIAL NOT NULL,
-    "userId" INTEGER NOT NULL,
-    "provider" "IdentityProvider" NOT NULL,
-    "providerId" VARCHAR(255) NOT NULL,
-    "credential" VARCHAR(500),
-    "credentialExp" TIMESTAMP(3),
-    "metadata" JSONB,
-    "verified" BOOLEAN NOT NULL DEFAULT false,
-    "verifiedAt" TIMESTAMP(3),
-    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "updatedAt" TIMESTAMP(3) NOT NULL,
-
-    CONSTRAINT "UserIdentity_pkey" PRIMARY KEY ("id")
+-- Role permissions
+CREATE TABLE "role_permissions" (
+  "id" SERIAL NOT NULL,
+  "role_id" INTEGER NOT NULL,
+  "permission_id" INTEGER NOT NULL,
+  "granted_by_id" INTEGER,
+  "granted_at" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT "role_permissions_pkey" PRIMARY KEY ("id")
 );
 
--- CreateTable
-CREATE TABLE "UserRole" (
-    "id" SERIAL NOT NULL,
-    "userId" INTEGER NOT NULL,
-    "roleId" INTEGER NOT NULL,
-    "grantedBy" INTEGER,
-    "grantedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "expiresAt" TIMESTAMP(3),
-
-    CONSTRAINT "UserRole_pkey" PRIMARY KEY ("id")
+-- Audit logs (append-only)
+CREATE TABLE "audit_logs" (
+  "id" SERIAL NOT NULL,
+  "public_id" UUID NOT NULL DEFAULT gen_random_uuid(),
+  "action" TEXT NOT NULL,
+  "operation" TEXT NOT NULL,
+  "entity_type" TEXT NOT NULL,
+  "entity_id" TEXT NOT NULL,
+  "actor_user_id" INTEGER,
+  "ip" TEXT,
+  "user_agent" TEXT,
+  "request_id" TEXT,
+  "before" JSONB,
+  "after" JSONB,
+  "created_at" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT "audit_logs_pkey" PRIMARY KEY ("id")
 );
 
--- CreateIndex
-CREATE INDEX "AuditLog_actorUserId_createdAt_idx" ON "AuditLog"("actorUserId", "createdAt");
+-- Foreign keys
+ALTER TABLE "users"
+  ADD CONSTRAINT "fk_users_deleted_by_id" FOREIGN KEY ("deleted_by_id") REFERENCES "users"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+ALTER TABLE "roles"
+  ADD CONSTRAINT "fk_roles_deleted_by_id" FOREIGN KEY ("deleted_by_id") REFERENCES "users"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+ALTER TABLE "dictionaries"
+  ADD CONSTRAINT "fk_dictionaries_deleted_by_id" FOREIGN KEY ("deleted_by_id") REFERENCES "users"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+ALTER TABLE "config_namespaces"
+  ADD CONSTRAINT "fk_config_namespaces_deleted_by_id" FOREIGN KEY ("deleted_by_id") REFERENCES "users"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+ALTER TABLE "config_items"
+  ADD CONSTRAINT "fk_config_items_deleted_by_id" FOREIGN KEY ("deleted_by_id") REFERENCES "users"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+ALTER TABLE "config_items"
+  ADD CONSTRAINT "fk_config_items_namespace_id" FOREIGN KEY ("namespace_id") REFERENCES "config_namespaces"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+ALTER TABLE "config_histories"
+  ADD CONSTRAINT "fk_config_histories_config_id" FOREIGN KEY ("config_id") REFERENCES "config_items"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+ALTER TABLE "config_histories"
+  ADD CONSTRAINT "fk_config_histories_changed_by_id" FOREIGN KEY ("changed_by_id") REFERENCES "users"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+ALTER TABLE "user_identities"
+  ADD CONSTRAINT "fk_user_identities_user_id" FOREIGN KEY ("user_id") REFERENCES "users"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+ALTER TABLE "user_roles"
+  ADD CONSTRAINT "fk_user_roles_user_id" FOREIGN KEY ("user_id") REFERENCES "users"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "user_roles"
+  ADD CONSTRAINT "fk_user_roles_role_id" FOREIGN KEY ("role_id") REFERENCES "roles"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "user_roles"
+  ADD CONSTRAINT "fk_user_roles_granted_by_id" FOREIGN KEY ("granted_by_id") REFERENCES "users"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+ALTER TABLE "role_permissions"
+  ADD CONSTRAINT "fk_role_permissions_role_id" FOREIGN KEY ("role_id") REFERENCES "roles"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "role_permissions"
+  ADD CONSTRAINT "fk_role_permissions_permission_id" FOREIGN KEY ("permission_id") REFERENCES "permissions"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "role_permissions"
+  ADD CONSTRAINT "fk_role_permissions_granted_by_id" FOREIGN KEY ("granted_by_id") REFERENCES "users"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+ALTER TABLE "audit_logs"
+  ADD CONSTRAINT "fk_audit_logs_actor_user_id" FOREIGN KEY ("actor_user_id") REFERENCES "users"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- Unique constraints / indexes (naming: uniq_* / idx_*)
+CREATE UNIQUE INDEX "uniq_users_public_id" ON "users"("public_id");
+CREATE UNIQUE INDEX "uniq_users_email_deleted_at" ON "users"("email", "deleted_at");
+
+CREATE UNIQUE INDEX "uniq_roles_public_id" ON "roles"("public_id");
+CREATE UNIQUE INDEX "uniq_roles_code" ON "roles"("code");
+
+CREATE UNIQUE INDEX "uniq_permissions_public_id" ON "permissions"("public_id");
+CREATE UNIQUE INDEX "uniq_permissions_code" ON "permissions"("code");
+CREATE INDEX "idx_permissions_module" ON "permissions"("module");
+CREATE INDEX "idx_permissions_resource_action" ON "permissions"("resource", "action");
+
+CREATE UNIQUE INDEX "uniq_dictionaries_public_id" ON "dictionaries"("public_id");
+CREATE UNIQUE INDEX "uniq_dictionaries_type_key" ON "dictionaries"("type", "key");
+CREATE INDEX "idx_dictionaries_type" ON "dictionaries"("type");
+CREATE INDEX "idx_dictionaries_type_is_enabled" ON "dictionaries"("type", "is_enabled");
+
+CREATE UNIQUE INDEX "uniq_config_namespaces_public_id" ON "config_namespaces"("public_id");
+CREATE UNIQUE INDEX "uniq_config_namespaces_name" ON "config_namespaces"("name");
+CREATE INDEX "idx_config_namespaces_is_enabled" ON "config_namespaces"("is_enabled");
+
+CREATE UNIQUE INDEX "uniq_config_items_public_id" ON "config_items"("public_id");
+CREATE UNIQUE INDEX "uniq_config_items_namespace_id_key" ON "config_items"("namespace_id", "key");
+CREATE INDEX "idx_config_items_namespace_id" ON "config_items"("namespace_id");
+CREATE INDEX "idx_config_items_namespace_id_is_enabled" ON "config_items"("namespace_id", "is_enabled");
+
+CREATE INDEX "idx_config_histories_config_id" ON "config_histories"("config_id");
+CREATE INDEX "idx_config_histories_config_id_version" ON "config_histories"("config_id", "version");
+
+CREATE UNIQUE INDEX "uniq_user_identities_public_id" ON "user_identities"("public_id");
+CREATE UNIQUE INDEX "uniq_user_identities_provider_provider_id" ON "user_identities"("provider", "provider_id");
+CREATE INDEX "idx_user_identities_user_id" ON "user_identities"("user_id");
+
+CREATE UNIQUE INDEX "uniq_user_roles_user_id_role_id" ON "user_roles"("user_id", "role_id");
+CREATE INDEX "idx_user_roles_user_id" ON "user_roles"("user_id");
+CREATE INDEX "idx_user_roles_role_id" ON "user_roles"("role_id");
+
+CREATE UNIQUE INDEX "uniq_role_permissions_role_id_permission_id" ON "role_permissions"("role_id", "permission_id");
+CREATE INDEX "idx_role_permissions_role_id" ON "role_permissions"("role_id");
+CREATE INDEX "idx_role_permissions_permission_id" ON "role_permissions"("permission_id");
+
+CREATE UNIQUE INDEX "uniq_audit_logs_public_id" ON "audit_logs"("public_id");
+CREATE INDEX "idx_audit_logs_actor_user_id_created_at" ON "audit_logs"("actor_user_id", "created_at");
+CREATE INDEX "idx_audit_logs_created_at" ON "audit_logs"("created_at");
+CREATE INDEX "idx_audit_logs_entity_type_entity_id_created_at" ON "audit_logs"("entity_type", "entity_id", "created_at");
 
 -- CreateIndex
 CREATE INDEX "AuditLog_createdAt_idx" ON "AuditLog"("createdAt");

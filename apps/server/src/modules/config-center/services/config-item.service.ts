@@ -98,7 +98,8 @@ export class ConfigItemService {
    */
   async create(namespace: string, dto: CreateConfigItemDto) {
     // 1. 验证命名空间存在
-    const ns = await this.namespaceService.findByName(namespace);
+    const ns =
+      await this.namespaceService.getNamespaceInternalOrThrow(namespace);
 
     // 2. 检查配置项是否已存在
     const existing = await this.prisma.configItem.findFirst({
@@ -183,7 +184,19 @@ export class ConfigItemService {
       changedAt: result.updatedAt.toISOString(),
     });
 
-    return result;
+    return {
+      id: result.publicId,
+      key: result.key,
+      value: this.decryptValue(result.value, result.isEncrypted),
+      valueType: result.valueType,
+      description: result.description,
+      isEncrypted: result.isEncrypted,
+      isEnabled: result.isEnabled,
+      version: result.version,
+      createdAt: result.createdAt,
+      updatedAt: result.updatedAt,
+      namespace,
+    };
   }
 
   /**
@@ -191,10 +204,12 @@ export class ConfigItemService {
    */
   async findAll(namespace: string, query: QueryConfigItemDto) {
     // 验证命名空间存在
-    const ns = await this.namespaceService.findByName(namespace);
+    const ns =
+      await this.namespaceService.getNamespaceInternalOrThrow(namespace);
 
-    const { key, isEnabled, page, limit } = query;
-    const skip = (page - 1) * limit;
+    const { key, isEnabled, page, pageSize: rawPageSize, limit } = query;
+    const pageSize = rawPageSize ?? limit ?? 10;
+    const skip = (page - 1) * pageSize;
 
     const where: Prisma.ConfigItemWhereInput = {
       namespaceId: ns.id,
@@ -208,25 +223,30 @@ export class ConfigItemService {
       this.prisma.configItem.findMany({
         where,
         skip,
-        take: limit,
+        take: pageSize,
         orderBy: { createdAt: "desc" },
       }),
       this.prisma.configItem.count({ where }),
     ]);
 
-    // 解密配置值（如果加密）
-    const data = configs.map((config) => ({
-      ...config,
-      value: this.decryptValue(config.value, config.isEncrypted),
-    }));
-
     return {
-      data,
-      meta: {
+      items: configs.map((config) => ({
+        id: config.publicId,
+        key: config.key,
+        value: this.decryptValue(config.value, config.isEncrypted),
+        valueType: config.valueType,
+        description: config.description,
+        isEncrypted: config.isEncrypted,
+        isEnabled: config.isEnabled,
+        version: config.version,
+        createdAt: config.createdAt,
+        updatedAt: config.updatedAt,
+        namespace,
+      })),
+      pagination: {
         total,
         page,
-        limit,
-        totalPages: Math.ceil(total / limit),
+        pageSize,
       },
     };
   }
@@ -235,14 +255,24 @@ export class ConfigItemService {
    * 获取单个配置项
    */
   async findOne(namespace: string, key: string) {
-    const ns = await this.namespaceService.findByName(namespace);
+    const ns =
+      await this.namespaceService.getNamespaceInternalOrThrow(namespace);
 
     // 尝试从缓存获取
     const cached = await this.cacheService.get(namespace, key);
     if (cached) {
       return {
-        ...cached,
+        id: cached.publicId,
+        key: cached.key,
         value: this.decryptValue(cached.value, cached.isEncrypted),
+        valueType: cached.valueType,
+        description: cached.description,
+        isEncrypted: cached.isEncrypted,
+        isEnabled: cached.isEnabled,
+        version: cached.version,
+        createdAt: cached.createdAt,
+        updatedAt: cached.updatedAt,
+        namespace,
       };
     }
 
@@ -270,8 +300,17 @@ export class ConfigItemService {
 
     // 解密配置值
     return {
-      ...config,
+      id: config.publicId,
+      key: config.key,
       value: this.decryptValue(config.value, config.isEncrypted),
+      valueType: config.valueType,
+      description: config.description,
+      isEncrypted: config.isEncrypted,
+      isEnabled: config.isEnabled,
+      version: config.version,
+      createdAt: config.createdAt,
+      updatedAt: config.updatedAt,
+      namespace,
     };
   }
 
@@ -280,7 +319,8 @@ export class ConfigItemService {
    * 用于客户端缓存校验
    */
   async getMeta(namespace: string, key: string) {
-    const ns = await this.namespaceService.findByName(namespace);
+    const ns =
+      await this.namespaceService.getNamespaceInternalOrThrow(namespace);
 
     const config = await this.prisma.configItem.findFirst({
       where: {
@@ -312,7 +352,8 @@ export class ConfigItemService {
    * 更新配置项
    */
   async update(namespace: string, key: string, dto: UpdateConfigItemDto) {
-    const ns = await this.namespaceService.findByName(namespace);
+    const ns =
+      await this.namespaceService.getNamespaceInternalOrThrow(namespace);
 
     // 获取当前配置
     const current = await this.prisma.configItem.findFirst({
@@ -428,7 +469,19 @@ export class ConfigItemService {
       changedAt: result.updatedAt.toISOString(),
     });
 
-    return result;
+    return {
+      id: result.publicId,
+      key: result.key,
+      value: this.decryptValue(result.value, result.isEncrypted),
+      valueType: result.valueType,
+      description: result.description,
+      isEncrypted: result.isEncrypted,
+      isEnabled: result.isEnabled,
+      version: result.version,
+      createdAt: result.createdAt,
+      updatedAt: result.updatedAt,
+      namespace,
+    };
   }
 
   /**
@@ -438,7 +491,8 @@ export class ConfigItemService {
     namespace: string,
     key: string,
   ): Promise<{ id: number; deletedAt: Date | null } | null> {
-    const ns = await this.namespaceService.findByName(namespace);
+    const ns =
+      await this.namespaceService.getNamespaceInternalOrThrow(namespace);
 
     const config = await this.prisma.configItem.findFirst({
       where: {
@@ -491,13 +545,8 @@ export class ConfigItemService {
     // 验证 keys 数量
     if (keys.length === 0) {
       return {
-        data: [],
-        meta: {
-          total: 0,
-          page: 1,
-          limit: 0,
-          totalPages: 0,
-        },
+        items: [],
+        pagination: { total: 0, page: 1, pageSize: 0 },
       };
     }
 
@@ -509,7 +558,8 @@ export class ConfigItemService {
     }
 
     // 验证命名空间存在
-    const ns = await this.namespaceService.findByName(namespace);
+    const ns =
+      await this.namespaceService.getNamespaceInternalOrThrow(namespace);
 
     // 查询配置项
     const configs = await this.prisma.configItem.findMany({
@@ -521,18 +571,24 @@ export class ConfigItemService {
     });
 
     // 解密配置值
-    const data = configs.map((config) => ({
-      ...config,
-      value: this.decryptValue(config.value, config.isEncrypted),
-    }));
-
     return {
-      data,
-      meta: {
-        total: data.length,
+      items: configs.map((config) => ({
+        id: config.publicId,
+        key: config.key,
+        value: this.decryptValue(config.value, config.isEncrypted),
+        valueType: config.valueType,
+        description: config.description,
+        isEncrypted: config.isEncrypted,
+        isEnabled: config.isEnabled,
+        version: config.version,
+        createdAt: config.createdAt,
+        updatedAt: config.updatedAt,
+        namespace,
+      })),
+      pagination: {
+        total: configs.length,
         page: 1,
-        limit: data.length,
-        totalPages: 1,
+        pageSize: configs.length,
       },
     };
   }
@@ -544,25 +600,46 @@ export class ConfigItemService {
     namespace: string,
     key: string,
     page: number = 1,
-    limit: number = 10,
+    pageSize: number = 10,
   ) {
-    const config = await this.findOne(namespace, key);
+    const ns =
+      await this.namespaceService.getNamespaceInternalOrThrow(namespace);
 
-    const skip = (page - 1) * limit;
+    const config = await this.prisma.configItem.findFirst({
+      where: {
+        namespaceId: ns.id,
+        key,
+        deletedAt: null,
+      },
+      select: {
+        id: true,
+        isEncrypted: true,
+        valueType: true,
+      },
+    });
+
+    if (!config) {
+      throw new BusinessException({
+        code: ApiErrorCode.CONFIG_ITEM_NOT_FOUND,
+        message: `配置项 "${namespace}:${key}" 不存在`,
+        status: 404, // NOT_FOUND
+      });
+    }
+
+    const skip = (page - 1) * pageSize;
     const where = { configId: config.id };
 
     const [histories, total] = await Promise.all([
       this.prisma.configHistory.findMany({
         where,
         skip,
-        take: limit,
+        take: pageSize,
         orderBy: { version: "desc" },
         include: {
-          User: {
+          changedBy: {
             select: {
-              id: true,
+              publicId: true,
               name: true,
-              email: true,
             },
           },
         },
@@ -571,18 +648,24 @@ export class ConfigItemService {
     ]);
 
     // 解密历史值（如果当前配置是加密的）
-    const data = histories.map((h) => ({
-      ...h,
+    const items = histories.map((h) => ({
+      version: h.version,
       value: this.decryptValue(h.value, config.isEncrypted),
+      valueType: config.valueType,
+      changeType: h.changeType,
+      changeNote: h.changeNote,
+      operator: h.changedBy
+        ? { id: h.changedBy.publicId, name: h.changedBy.name }
+        : null,
+      createdAt: h.createdAt,
     }));
 
     return {
-      data,
-      meta: {
+      items,
+      pagination: {
         total,
         page,
-        limit,
-        totalPages: Math.ceil(total / limit),
+        pageSize,
       },
     };
   }
@@ -596,7 +679,38 @@ export class ConfigItemService {
     targetVersion: number,
     changeNote?: string,
   ) {
-    const config = await this.findOne(namespace, key);
+    const ns =
+      await this.namespaceService.getNamespaceInternalOrThrow(namespace);
+
+    const config = await this.prisma.configItem.findFirst({
+      where: {
+        namespaceId: ns.id,
+        key,
+        deletedAt: null,
+      },
+      select: {
+        id: true,
+        publicId: true,
+        key: true,
+        value: true,
+        valueType: true,
+        description: true,
+        isEncrypted: true,
+        isEnabled: true,
+        version: true,
+        jsonSchema: true,
+        createdAt: true,
+        updatedAt: true,
+      },
+    });
+
+    if (!config) {
+      throw new BusinessException({
+        code: ApiErrorCode.CONFIG_ITEM_NOT_FOUND,
+        message: `配置项 "${namespace}:${key}" 不存在`,
+        status: 404,
+      });
+    }
 
     // 查找目标版本的历史记录
     const targetHistory = await this.prisma.configHistory.findFirst({
@@ -664,7 +778,19 @@ export class ConfigItemService {
       changedAt: result.updatedAt.toISOString(),
     });
 
-    return result;
+    return {
+      id: result.publicId,
+      key: result.key,
+      value: this.decryptValue(result.value, result.isEncrypted),
+      valueType: result.valueType,
+      description: result.description,
+      isEncrypted: result.isEncrypted,
+      isEnabled: result.isEnabled,
+      version: result.version,
+      createdAt: result.createdAt,
+      updatedAt: result.updatedAt,
+      namespace,
+    };
   }
 
   /**
@@ -679,7 +805,7 @@ export class ConfigItemService {
     dto: BatchUpsertConfigDto,
   ): Promise<BatchOperationResponse> {
     // 验证命名空间存在
-    await this.namespaceService.findByName(namespace);
+    await this.namespaceService.getNamespaceInternalOrThrow(namespace);
 
     const results: BatchOperationResult[] = [];
     let successful = 0;
@@ -748,7 +874,8 @@ export class ConfigItemService {
    */
   async findPublicByKey(namespace: string, key: string) {
     // 验证命名空间存在
-    const ns = await this.namespaceService.findByName(namespace);
+    const ns =
+      await this.namespaceService.getNamespaceInternalOrThrow(namespace);
 
     const config = await this.prisma.configItem.findFirst({
       where: {
@@ -768,10 +895,18 @@ export class ConfigItemService {
       });
     }
 
-    // 解密配置值（如果加密）
     return {
-      ...config,
+      id: config.publicId,
+      key: config.key,
       value: this.decryptValue(config.value, config.isEncrypted),
+      valueType: config.valueType,
+      description: config.description,
+      isEncrypted: config.isEncrypted,
+      isEnabled: config.isEnabled,
+      version: config.version,
+      createdAt: config.createdAt,
+      updatedAt: config.updatedAt,
+      namespace,
     };
   }
 }

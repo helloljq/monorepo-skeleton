@@ -2,43 +2,43 @@
 # 预发布验证环境，包含完整服务栈，尽量模拟生产配置
 #
 # 使用方法:
-#   cd /opt/{{NAME}}/staging
+#   cd /opt/monorepo-skeleton/staging
 #   cp .env.example .env  # 编辑 .env 设置密码和镜像仓库
 #   docker compose up -d
 
-name: {{NAME}}-staging
+name: monorepo-skeleton-staging
 
 services:
   # ==================== 数据库服务 ====================
   postgres:
     image: postgres:16-alpine
-    container_name: {{NAME}}-staging-postgres
+    container_name: monorepo-skeleton-staging-postgres
     restart: unless-stopped
     environment:
-      POSTGRES_DB: ${POSTGRES_DB:-{{NAME}}_staging}
-      POSTGRES_USER: ${POSTGRES_USER:-{{NAME}}}
+      POSTGRES_DB: ${POSTGRES_DB:-monorepo-skeleton_staging}
+      POSTGRES_USER: ${POSTGRES_USER:-monorepo-skeleton}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
       TZ: Asia/Shanghai
     ports:
       # 仅绑定本机，避免公网暴露
-      - "127.0.0.1:{{PORT_POSTGRES_STAGING}}:5432"
+      - "127.0.0.1:17110:5432"
     volumes:
-      - {{NAME}}-staging-postgres:/var/lib/postgresql/data
+      - monorepo-skeleton-staging-postgres:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-{{NAME}}}"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-monorepo-skeleton}"]
       interval: 30s
       timeout: 10s
       retries: 3
     networks:
-      - {{NAME}}-staging-net
+      - monorepo-skeleton-staging-net
     deploy:
       resources:
         limits:
           memory: 2G
-          cpus: '2.0'
+          cpus: "2.0"
         reservations:
           memory: 512M
-          cpus: '0.5'
+          cpus: "0.5"
     logging:
       driver: "json-file"
       options:
@@ -47,7 +47,7 @@ services:
 
   redis:
     image: redis:7-alpine
-    container_name: {{NAME}}-staging-redis
+    container_name: monorepo-skeleton-staging-redis
     restart: unless-stopped
     command: redis-server --requirepass ${REDIS_PASSWORD:?REDIS_PASSWORD is required} --appendonly yes
     environment:
@@ -56,24 +56,24 @@ services:
       TZ: Asia/Shanghai
     ports:
       # 仅绑定本机，避免公网暴露
-      - "127.0.0.1:{{PORT_REDIS_STAGING}}:6379"
+      - "127.0.0.1:17111:6379"
     volumes:
-      - {{NAME}}-staging-redis:/data
+      - monorepo-skeleton-staging-redis:/data
     healthcheck:
       test: ["CMD-SHELL", "redis-cli --no-auth-warning ping | grep -q PONG"]
       interval: 30s
       timeout: 10s
       retries: 3
     networks:
-      - {{NAME}}-staging-net
+      - monorepo-skeleton-staging-net
     deploy:
       resources:
         limits:
           memory: 1G
-          cpus: '1.0'
+          cpus: "1.0"
         reservations:
           memory: 256M
-          cpus: '0.25'
+          cpus: "0.25"
     logging:
       driver: "json-file"
       options:
@@ -84,7 +84,7 @@ services:
   # 每个服务使用独立的 IMAGE_TAG，支持按需部署（仅更新变更的服务）
   server:
     image: ${DOCKER_REGISTRY:?DOCKER_REGISTRY is required}/${DOCKER_NAMESPACE:?DOCKER_NAMESPACE is required}/server:${SERVER_IMAGE_TAG:-staging-latest}
-    container_name: {{NAME}}-staging-server
+    container_name: monorepo-skeleton-staging-server
     restart: unless-stopped
     depends_on:
       postgres:
@@ -94,7 +94,7 @@ services:
     environment:
       NODE_ENV: production
       PORT: 8100
-      DATABASE_URL: postgresql://${POSTGRES_USER:-{{NAME}}}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-{{NAME}}_staging}
+      DATABASE_URL: postgresql://${POSTGRES_USER:-monorepo-skeleton}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-monorepo-skeleton_staging}
       REDIS_URL: redis://:${REDIS_PASSWORD}@redis:6379/0
       JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET:?JWT_ACCESS_SECRET is required}
       JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:?JWT_REFRESH_SECRET is required}
@@ -102,23 +102,29 @@ services:
       CORS_ORIGINS: ${CORS_ORIGINS:-}
       TZ: Asia/Shanghai
     ports:
-      - "{{PORT_SERVER_STAGING}}:8100"
+      - "17100:8100"
     healthcheck:
-      test: ["CMD", "node", "-e", "require('http').get('http://localhost:8100/health', (r) => process.exit(r.statusCode === 200 ? 0 : 1))"]
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "require('http').get('http://localhost:8100/health', (r) => process.exit(r.statusCode === 200 ? 0 : 1))",
+        ]
       interval: 30s
       timeout: 10s
       start_period: 40s
       retries: 3
     networks:
-      - {{NAME}}-staging-net
+      - monorepo-skeleton-staging-net
     deploy:
       resources:
         limits:
           memory: 2G
-          cpus: '2.0'
+          cpus: "2.0"
         reservations:
           memory: 512M
-          cpus: '0.5'
+          cpus: "0.5"
     logging:
       driver: "json-file"
       options:
@@ -127,7 +133,7 @@ services:
 
   admin-web:
     image: ${DOCKER_REGISTRY}/${DOCKER_NAMESPACE}/admin-web:${ADMIN_IMAGE_TAG:-staging-latest}
-    container_name: {{NAME}}-staging-admin-web
+    container_name: monorepo-skeleton-staging-admin-web
     restart: unless-stopped
     depends_on:
       server:
@@ -135,14 +141,18 @@ services:
     environment:
       TZ: Asia/Shanghai
     ports:
-      - "{{PORT_ADMIN_STAGING}}:80"
+      - "17101:80"
     healthcheck:
-      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://127.0.0.1/ || exit 1"]
+      test:
+        [
+          "CMD-SHELL",
+          "wget --no-verbose --tries=1 --spider http://127.0.0.1/ || exit 1",
+        ]
       interval: 30s
       timeout: 10s
       retries: 3
     networks:
-      - {{NAME}}-staging-net
+      - monorepo-skeleton-staging-net
     logging:
       driver: "json-file"
       options:
@@ -151,7 +161,7 @@ services:
 
   www-web:
     image: ${DOCKER_REGISTRY}/${DOCKER_NAMESPACE}/www-web:${WWW_IMAGE_TAG:-staging-latest}
-    container_name: {{NAME}}-staging-www-web
+    container_name: monorepo-skeleton-staging-www-web
     restart: unless-stopped
     depends_on:
       server:
@@ -159,14 +169,18 @@ services:
     environment:
       TZ: Asia/Shanghai
     ports:
-      - "{{PORT_WWW_STAGING}}:80"
+      - "17102:80"
     healthcheck:
-      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://127.0.0.1/ || exit 1"]
+      test:
+        [
+          "CMD-SHELL",
+          "wget --no-verbose --tries=1 --spider http://127.0.0.1/ || exit 1",
+        ]
       interval: 30s
       timeout: 10s
       retries: 3
     networks:
-      - {{NAME}}-staging-net
+      - monorepo-skeleton-staging-net
     logging:
       driver: "json-file"
       options:
@@ -174,9 +188,9 @@ services:
         max-file: "3"
 
 volumes:
-  {{NAME}}-staging-postgres:
-  {{NAME}}-staging-redis:
+  monorepo-skeleton-staging-postgres:
+  monorepo-skeleton-staging-redis:
 
 networks:
-  {{NAME}}-staging-net:
+  monorepo-skeleton-staging-net:
     driver: bridge

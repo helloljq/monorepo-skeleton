@@ -25,6 +25,7 @@ describe("AuthService", () => {
 
   const mockUser = {
     id: 1,
+    publicId: "550e8400-e29b-41d4-a716-446655440000",
     email: "test@example.com",
     password: "$2b$10$hashedpassword",
     name: "Test User",
@@ -35,15 +36,15 @@ describe("AuthService", () => {
     deleteReason: null,
     createdAt: new Date(),
     updatedAt: new Date(),
-    UserRole_UserRole_userIdToUser: [
+    userRoles: [
       {
         id: 1,
         userId: 1,
         roleId: 1,
-        grantedBy: null,
+        grantedById: null,
         grantedAt: new Date(),
         expiresAt: null,
-        Role: {
+        role: {
           code: "USER",
           isEnabled: true,
           deletedAt: null,
@@ -53,7 +54,7 @@ describe("AuthService", () => {
   };
 
   const mockUserWithRoles = {
-    id: 1,
+    id: "550e8400-e29b-41d4-a716-446655440000",
     email: "test@example.com",
     name: "Test User",
     status: "ACTIVE",
@@ -162,7 +163,7 @@ describe("AuthService", () => {
           password: "Password123",
         }),
       ).rejects.toMatchObject({
-        businessCode: ApiErrorCode.AUTH_EMAIL_EXISTS,
+        code: ApiErrorCode.AUTH_EMAIL_EXISTS,
       });
     });
   });
@@ -171,6 +172,7 @@ describe("AuthService", () => {
     it("should login successfully with valid credentials", async () => {
       identityService.validateEmailPassword.mockResolvedValue({
         user: mockUserWithRoles,
+        internalUserId: 1,
         isNewUser: false,
       });
       jwtService.signAsync
@@ -209,7 +211,7 @@ describe("AuthService", () => {
           deviceId: "device-1",
         }),
       ).rejects.toMatchObject({
-        businessCode: ApiErrorCode.AUTH_INVALID_CREDENTIALS,
+        code: ApiErrorCode.AUTH_INVALID_CREDENTIALS,
       });
     });
 
@@ -229,7 +231,7 @@ describe("AuthService", () => {
           deviceId: "device-1",
         }),
       ).rejects.toMatchObject({
-        businessCode: ApiErrorCode.AUTH_INVALID_CREDENTIALS,
+        code: ApiErrorCode.AUTH_INVALID_CREDENTIALS,
       });
     });
   });
@@ -257,7 +259,7 @@ describe("AuthService", () => {
           deviceId: "device-1",
         }),
       ).rejects.toMatchObject({
-        businessCode: ApiErrorCode.AUTH_REFRESH_TOKEN_INVALID,
+        code: ApiErrorCode.AUTH_REFRESH_TOKEN_INVALID,
       });
     });
 
@@ -271,7 +273,7 @@ describe("AuthService", () => {
           deviceId: "device-1",
         }),
       ).rejects.toMatchObject({
-        businessCode: ApiErrorCode.AUTH_REFRESH_TOKEN_INVALID,
+        code: ApiErrorCode.AUTH_REFRESH_TOKEN_INVALID,
       });
     });
 
@@ -289,7 +291,7 @@ describe("AuthService", () => {
           deviceId: "device-1",
         }),
       ).rejects.toMatchObject({
-        businessCode: ApiErrorCode.AUTH_USER_NOT_FOUND,
+        code: ApiErrorCode.AUTH_USER_NOT_FOUND,
       });
     });
 
@@ -329,7 +331,7 @@ describe("AuthService", () => {
           deviceId: "device-1",
         }),
       ).rejects.toMatchObject({
-        businessCode: ApiErrorCode.AUTH_USER_DISABLED,
+        code: ApiErrorCode.AUTH_USER_DISABLED,
       });
     });
 
@@ -343,7 +345,7 @@ describe("AuthService", () => {
           deviceId: "device-1",
         }),
       ).rejects.toMatchObject({
-        businessCode: ApiErrorCode.REDIS_ERROR,
+        code: ApiErrorCode.REDIS_ERROR,
       });
     });
 
@@ -357,7 +359,7 @@ describe("AuthService", () => {
           deviceId: "device-1",
         }),
       ).rejects.toMatchObject({
-        businessCode: ApiErrorCode.AUTH_REFRESH_TOKEN_INVALID,
+        code: ApiErrorCode.AUTH_REFRESH_TOKEN_INVALID,
       });
     });
   });
@@ -374,24 +376,20 @@ describe("AuthService", () => {
   });
 
   describe("loginWithPhone", () => {
-    const mockPhoneIdentity = {
-      id: 1,
-      userId: 1,
-      provider: "PHONE",
-      providerId: "13800138000",
-      verified: true,
-      User: {
-        ...mockUser,
-      },
-    };
-
     it("should login existing user with phone successfully", async () => {
       smsService.verifyCode.mockResolvedValue(undefined);
-      (
-        prismaService as unknown as { userIdentity: { findUnique: jest.Mock } }
-      ).userIdentity = {
-        findUnique: jest.fn().mockResolvedValue(mockPhoneIdentity),
-      };
+      identityService.validatePhoneCode.mockResolvedValue({
+        user: {
+          id: "550e8400-e29b-41d4-a716-446655440000",
+          email: "test@example.com",
+          name: "Test User",
+          status: "ACTIVE",
+          avatar: null,
+          roles: ["USER"],
+        },
+        internalUserId: 1,
+        isNewUser: false,
+      });
       jwtService.signAsync
         .mockResolvedValueOnce("access-token")
         .mockResolvedValueOnce("refresh-token");
@@ -409,19 +407,20 @@ describe("AuthService", () => {
         "13800138000",
         "123456",
       );
+      expect(identityService.validatePhoneCode).toHaveBeenCalledWith(
+        "13800138000",
+      );
     });
 
     it("should throw AUTH_USER_DISABLED if phone user is disabled", async () => {
-      const disabledPhoneIdentity = {
-        ...mockPhoneIdentity,
-        User: { ...mockUser, status: "DISABLED" },
-      };
       smsService.verifyCode.mockResolvedValue(undefined);
-      (
-        prismaService as unknown as { userIdentity: { findUnique: jest.Mock } }
-      ).userIdentity = {
-        findUnique: jest.fn().mockResolvedValue(disabledPhoneIdentity),
-      };
+      identityService.validatePhoneCode.mockRejectedValue(
+        new BusinessException({
+          code: ApiErrorCode.AUTH_USER_DISABLED,
+          message: "User account is disabled",
+          status: 403,
+        }),
+      );
 
       await expect(
         service.loginWithPhone({
@@ -430,35 +429,24 @@ describe("AuthService", () => {
           deviceId: "device-1",
         }),
       ).rejects.toMatchObject({
-        businessCode: ApiErrorCode.AUTH_USER_DISABLED,
+        code: ApiErrorCode.AUTH_USER_DISABLED,
       });
     });
 
     it("should auto-register new user if phone identity not found", async () => {
       smsService.verifyCode.mockResolvedValue(undefined);
-      (
-        prismaService as unknown as { userIdentity: { findUnique: jest.Mock } }
-      ).userIdentity = {
-        findUnique: jest.fn().mockResolvedValue(null),
-      };
-      (prismaService as unknown as { role: { findUnique: jest.Mock } }).role = {
-        findUnique: jest.fn().mockResolvedValue({ id: 1, code: "USER" }),
-      };
-      (prismaService as unknown as { $transaction: jest.Mock }).$transaction =
-        jest.fn().mockImplementation(async (fn) => {
-          const mockTx = {
-            user: {
-              create: jest.fn().mockResolvedValue({
-                id: 2,
-                email: "phone_13800138000@placeholder.local",
-              }),
-            },
-            userIdentity: {
-              create: jest.fn().mockResolvedValue({}),
-            },
-          };
-          return fn(mockTx);
-        });
+      identityService.validatePhoneCode.mockResolvedValue({
+        user: {
+          id: "550e8400-e29b-41d4-a716-446655440001",
+          email: "phone_13800138000@placeholder.local",
+          name: null,
+          status: "ACTIVE",
+          avatar: null,
+          roles: ["USER"],
+        },
+        internalUserId: 2,
+        isNewUser: true,
+      });
       jwtService.signAsync
         .mockResolvedValueOnce("access-token")
         .mockResolvedValueOnce("refresh-token");

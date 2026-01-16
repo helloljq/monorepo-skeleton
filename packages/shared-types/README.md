@@ -5,7 +5,11 @@
 ## 使用
 
 ```typescript
-import type { ApiResponse, PaginatedResponse, UserStatus } from '@{{NAME}}/shared-types'
+import type {
+  ApiResponse,
+  PaginatedResponse,
+  UserStatus,
+} from "@{{NAME}}/shared-types";
 ```
 
 ## 包含类型

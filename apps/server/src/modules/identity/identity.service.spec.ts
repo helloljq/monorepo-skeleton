@@ -2,64 +2,27 @@ import { Test, TestingModule } from "@nestjs/testing";
 import { IdentityProvider } from "@prisma/client";
 import * as bcrypt from "bcrypt";
 
-import { BusinessException } from "../../common/errors/business.exception";
 import { ApiErrorCode } from "../../common/errors/error-codes";
 import { PrismaService } from "../../database/prisma/prisma.service";
 import { IdentityService } from "./identity.service";
 
 describe("IdentityService", () => {
   let service: IdentityService;
-  let prismaService: jest.Mocked<PrismaService>;
+  let prisma: jest.Mocked<PrismaService>;
 
-  const mockUserWithRoles = {
-    id: 1,
-    email: "test@example.com",
-    name: "Test User",
-    status: "ACTIVE",
-    avatar: null,
-    password: "$2b$10$hashedpassword",
-    deletedAt: null,
-    deletedById: null,
-    deleteReason: null,
-    createdAt: new Date(),
-    updatedAt: new Date(),
-    UserRole_UserRole_userIdToUser: [
-      {
-        id: 1,
-        userId: 1,
-        roleId: 1,
-        grantedBy: null,
-        grantedAt: new Date(),
-        expiresAt: null,
-        Role: {
-          code: "USER",
-          isEnabled: true,
-          deletedAt: null,
-        },
-      },
-    ],
-  };
-
-  const mockIdentity = {
-    id: 1,
-    userId: 1,
-    provider: "EMAIL",
-    providerId: "test@example.com",
-    credential: "$2b$10$hashedpassword",
-    verified: true,
-    metadata: null,
-    createdAt: new Date(),
-    updatedAt: new Date(),
-    User: mockUserWithRoles,
-  };
+  const now = new Date();
+  const userInternalId = 1;
+  const userPublicId = "550e8400-e29b-41d4-a716-446655440600";
 
   beforeEach(async () => {
-    const mockPrismaService = {
+    const mockPrisma: Partial<jest.Mocked<PrismaService>> = {
       userIdentity: {
         findUnique: jest.fn(),
         findMany: jest.fn(),
+        findFirst: jest.fn(),
         create: jest.fn(),
         count: jest.fn(),
+        delete: jest.fn(),
       },
       user: {
         create: jest.fn(),
@@ -74,216 +37,272 @@ describe("IdentityService", () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         IdentityService,
-        { provide: PrismaService, useValue: mockPrismaService },
+        { provide: PrismaService, useValue: mockPrisma },
       ],
     }).compile();
 
-    service = module.get<IdentityService>(IdentityService);
-    prismaService = module.get(PrismaService);
+    service = module.get(IdentityService);
+    prisma = module.get(PrismaService);
   });
 
   describe("validateEmailPassword", () => {
     it("should validate email password successfully", async () => {
       const hashedPassword = await bcrypt.hash("Password123", 10);
-      const identityWithHash = {
-        ...mockIdentity,
+      prisma.userIdentity.findUnique.mockResolvedValue({
         credential: hashedPassword,
-      };
-
-      prismaService.userIdentity.findUnique.mockResolvedValue(identityWithHash);
+        user: {
+          id: userInternalId,
+          publicId: userPublicId,
+          email: "test@example.com",
+          name: "Test User",
+          status: "ACTIVE",
+          avatar: null,
+          userRoles: [
+            {
+              role: { code: "USER", isEnabled: true, deletedAt: null },
+            },
+          ],
+        },
+      } as never);
 
       const result = await service.validateEmailPassword(
         "test@example.com",
         "Password123",
       );
 
-      expect(result.user.id).toBe(1);
-      expect(result.user.email).toBe("test@example.com");
-      expect(result.isNewUser).toBe(false);
+      expect(result).toEqual({
+        user: {
+          id: userPublicId,
+          email: "test@example.com",
+          name: "Test User",
+          status: "ACTIVE",
+          avatar: null,
+          roles: ["USER"],
+        },
+        internalUserId: userInternalId,
+        isNewUser: false,
+      });
     });
 
     it("should throw AUTH_INVALID_CREDENTIALS when identity not found", async () => {
-      prismaService.userIdentity.findUnique.mockResolvedValue(null);
+      prisma.userIdentity.findUnique.mockResolvedValue(null);
 
-      try {
-        await service.validateEmailPassword(
-          "notfound@example.com",
-          "Password123",
-        );
-        fail("Expected BusinessException to be thrown");
-      } catch (e) {
-        expect(e).toBeInstanceOf(BusinessException);
-        expect((e as BusinessException).businessCode).toBe(
-          ApiErrorCode.AUTH_INVALID_CREDENTIALS,
-        );
-      }
+      await expect(
+        service.validateEmailPassword("notfound@example.com", "Password123"),
+      ).rejects.toMatchObject({
+        code: ApiErrorCode.AUTH_INVALID_CREDENTIALS,
+      });
     });
 
     it("should throw AUTH_USER_DISABLED when user is disabled", async () => {
-      const disabledUserIdentity = {
-        ...mockIdentity,
-        User: { ...mockUserWithRoles, status: "DISABLED" },
-      };
-      prismaService.userIdentity.findUnique.mockResolvedValue(
-        disabledUserIdentity,
-      );
+      prisma.userIdentity.findUnique.mockResolvedValue({
+        credential: "$2b$10$hashedpassword",
+        user: {
+          id: userInternalId,
+          publicId: userPublicId,
+          email: "test@example.com",
+          name: "Test User",
+          status: "DISABLED",
+          avatar: null,
+          userRoles: [],
+        },
+      } as never);
 
-      try {
-        await service.validateEmailPassword("test@example.com", "Password123");
-        fail("Expected BusinessException to be thrown");
-      } catch (e) {
-        expect(e).toBeInstanceOf(BusinessException);
-        expect((e as BusinessException).businessCode).toBe(
-          ApiErrorCode.AUTH_USER_DISABLED,
-        );
-      }
+      await expect(
+        service.validateEmailPassword("test@example.com", "Password123"),
+      ).rejects.toMatchObject({
+        code: ApiErrorCode.AUTH_USER_DISABLED,
+      });
     });
 
     it("should throw AUTH_INVALID_CREDENTIALS when password does not match", async () => {
       const hashedPassword = await bcrypt.hash("CorrectPassword123", 10);
-      const identityWithHash = {
-        ...mockIdentity,
+      prisma.userIdentity.findUnique.mockResolvedValue({
         credential: hashedPassword,
-      };
-      prismaService.userIdentity.findUnique.mockResolvedValue(identityWithHash);
+        user: {
+          id: userInternalId,
+          publicId: userPublicId,
+          email: "test@example.com",
+          name: "Test User",
+          status: "ACTIVE",
+          avatar: null,
+          userRoles: [],
+        },
+      } as never);
 
-      try {
-        await service.validateEmailPassword(
-          "test@example.com",
-          "WrongPassword123",
-        );
-        fail("Expected BusinessException to be thrown");
-      } catch (e) {
-        expect(e).toBeInstanceOf(BusinessException);
-        expect((e as BusinessException).businessCode).toBe(
-          ApiErrorCode.AUTH_INVALID_CREDENTIALS,
-        );
-      }
+      await expect(
+        service.validateEmailPassword("test@example.com", "WrongPassword123"),
+      ).rejects.toMatchObject({
+        code: ApiErrorCode.AUTH_INVALID_CREDENTIALS,
+      });
     });
 
     it("should throw AUTH_INVALID_CREDENTIALS when credential is null", async () => {
-      const identityWithoutCredential = {
-        ...mockIdentity,
+      prisma.userIdentity.findUnique.mockResolvedValue({
         credential: null,
-      };
-      prismaService.userIdentity.findUnique.mockResolvedValue(
-        identityWithoutCredential,
+        user: {
+          id: userInternalId,
+          publicId: userPublicId,
+          email: "test@example.com",
+          name: "Test User",
+          status: "ACTIVE",
+          avatar: null,
+          userRoles: [],
+        },
+      } as never);
+
+      await expect(
+        service.validateEmailPassword("test@example.com", "Password123"),
+      ).rejects.toMatchObject({
+        code: ApiErrorCode.AUTH_INVALID_CREDENTIALS,
+      });
+    });
+
+    it("should filter out disabled/deleted roles", async () => {
+      const hashedPassword = await bcrypt.hash("Password123", 10);
+      prisma.userIdentity.findUnique.mockResolvedValue({
+        credential: hashedPassword,
+        user: {
+          id: userInternalId,
+          publicId: userPublicId,
+          email: "test@example.com",
+          name: "Test User",
+          status: "ACTIVE",
+          avatar: null,
+          userRoles: [
+            { role: { code: "USER", isEnabled: true, deletedAt: null } },
+            { role: { code: "DISABLED", isEnabled: false, deletedAt: null } },
+            { role: { code: "DELETED", isEnabled: true, deletedAt: now } },
+          ],
+        },
+      } as never);
+
+      const result = await service.validateEmailPassword(
+        "test@example.com",
+        "Password123",
       );
 
-      try {
-        await service.validateEmailPassword("test@example.com", "Password123");
-        fail("Expected BusinessException to be thrown");
-      } catch (e) {
-        expect(e).toBeInstanceOf(BusinessException);
-        expect((e as BusinessException).businessCode).toBe(
-          ApiErrorCode.AUTH_INVALID_CREDENTIALS,
-        );
-      }
+      expect(result.user.roles).toEqual(["USER"]);
     });
   });
 
   describe("validatePhoneCode", () => {
     it("should return existing user when phone identity exists", async () => {
-      const phoneIdentity = {
-        ...mockIdentity,
-        provider: "PHONE",
-        providerId: "13812345678",
-      };
-      prismaService.userIdentity.findUnique.mockResolvedValue(phoneIdentity);
+      prisma.userIdentity.findUnique.mockResolvedValue({
+        credential: null,
+        user: {
+          id: userInternalId,
+          publicId: userPublicId,
+          email: "phone_13812345678@placeholder.local",
+          name: null,
+          status: "ACTIVE",
+          avatar: null,
+          userRoles: [
+            { role: { code: "USER", isEnabled: true, deletedAt: null } },
+          ],
+        },
+      } as never);
 
       const result = await service.validatePhoneCode("13812345678");
 
-      expect(result.user.id).toBe(1);
       expect(result.isNewUser).toBe(false);
+      expect(result.user.id).toBe(userPublicId);
+      expect(result.internalUserId).toBe(userInternalId);
     });
 
     it("should throw AUTH_USER_DISABLED when existing user is disabled", async () => {
-      const disabledPhoneIdentity = {
-        ...mockIdentity,
-        provider: "PHONE",
-        providerId: "13812345678",
-        User: { ...mockUserWithRoles, status: "DISABLED" },
-      };
-      prismaService.userIdentity.findUnique.mockResolvedValue(
-        disabledPhoneIdentity,
-      );
+      prisma.userIdentity.findUnique.mockResolvedValue({
+        credential: null,
+        user: {
+          id: userInternalId,
+          publicId: userPublicId,
+          email: "phone_13812345678@placeholder.local",
+          name: null,
+          status: "DISABLED",
+          avatar: null,
+          userRoles: [],
+        },
+      } as never);
 
-      try {
-        await service.validatePhoneCode("13812345678");
-        fail("Expected BusinessException to be thrown");
-      } catch (e) {
-        expect(e).toBeInstanceOf(BusinessException);
-        expect((e as BusinessException).businessCode).toBe(
-          ApiErrorCode.AUTH_USER_DISABLED,
-        );
-      }
+      await expect(
+        service.validatePhoneCode("13812345678"),
+      ).rejects.toMatchObject({
+        code: ApiErrorCode.AUTH_USER_DISABLED,
+      });
     });
 
     it("should create new user when phone identity does not exist", async () => {
-      prismaService.userIdentity.findUnique.mockResolvedValue(null);
-      prismaService.role.findUnique.mockResolvedValue({ id: 1, code: "USER" });
+      prisma.userIdentity.findUnique.mockResolvedValue(null);
+      prisma.role.findUnique.mockResolvedValue({
+        id: 10,
+        code: "USER",
+      } as never);
 
-      const newUser = {
-        id: 2,
-        email: null,
-        name: null,
-        status: "ACTIVE",
-        avatar: null,
-      };
-      prismaService.$transaction.mockImplementation(
-        async (callback: (tx: unknown) => Promise<unknown>) => {
-          const tx = {
-            user: { create: jest.fn().mockResolvedValue(newUser) },
-            userIdentity: { create: jest.fn().mockResolvedValue({}) },
-          };
-          return callback(tx);
-        },
-      );
+      prisma.$transaction.mockImplementation(async (fn) => {
+        const tx = {
+          user: {
+            create: jest.fn().mockResolvedValue({
+              id: 2,
+              publicId: "550e8400-e29b-41d4-a716-446655440601",
+              email: "phone_13800000000@placeholder.local",
+              name: null,
+              status: "ACTIVE",
+              avatar: null,
+            }),
+          },
+          userIdentity: {
+            create: jest.fn().mockResolvedValue({}),
+          },
+        };
+        return fn(tx as never);
+      });
 
       const result = await service.validatePhoneCode("13800000000");
 
-      expect(result.user.id).toBe(2);
       expect(result.isNewUser).toBe(true);
+      expect(result.user.id).toBe("550e8400-e29b-41d4-a716-446655440601");
+      expect(result.internalUserId).toBe(2);
       expect(result.user.roles).toEqual(["USER"]);
     });
   });
 
   describe("createEmailIdentity", () => {
     it("should throw AUTH_EMAIL_EXISTS when email already exists", async () => {
-      prismaService.userIdentity.findUnique.mockResolvedValue(mockIdentity);
+      prisma.userIdentity.findUnique.mockResolvedValue({ id: 1 } as never);
 
-      try {
-        await service.createEmailIdentity("test@example.com", "Password123");
-        fail("Expected BusinessException to be thrown");
-      } catch (e) {
-        expect(e).toBeInstanceOf(BusinessException);
-        expect((e as BusinessException).businessCode).toBe(
-          ApiErrorCode.AUTH_EMAIL_EXISTS,
-        );
-      }
+      await expect(
+        service.createEmailIdentity("test@example.com", "Password123"),
+      ).rejects.toMatchObject({
+        code: ApiErrorCode.AUTH_EMAIL_EXISTS,
+      });
     });
 
-    it("should create email identity successfully", async () => {
-      prismaService.userIdentity.findUnique.mockResolvedValue(null);
-      prismaService.role.findUnique.mockResolvedValue({ id: 1, code: "USER" });
+    it("should create email identity successfully (non-first user)", async () => {
+      prisma.userIdentity.findUnique.mockResolvedValue(null);
+      prisma.user.count.mockResolvedValue(1);
+      prisma.role.findUnique.mockResolvedValue({
+        id: 10,
+        code: "USER",
+      } as never);
 
-      const newUser = {
-        id: 3,
-        email: "new@example.com",
-        name: "New User",
-        status: "ACTIVE",
-        avatar: null,
-      };
-      prismaService.user.count.mockResolvedValue(1); // Not first user
-      prismaService.$transaction.mockImplementation(
-        async (callback: (tx: unknown) => Promise<unknown>) => {
-          const tx = {
-            user: { create: jest.fn().mockResolvedValue(newUser) },
-            userIdentity: { create: jest.fn().mockResolvedValue({}) },
-          };
-          return callback(tx);
-        },
-      );
+      prisma.$transaction.mockImplementation(async (fn) => {
+        const tx = {
+          user: {
+            create: jest.fn().mockResolvedValue({
+              id: 3,
+              publicId: "550e8400-e29b-41d4-a716-446655440602",
+              email: "new@example.com",
+              name: "New User",
+              status: "ACTIVE",
+              avatar: null,
+            }),
+          },
+          userIdentity: {
+            create: jest.fn().mockResolvedValue({}),
+          },
+        };
+        return fn(tx as never);
+      });
 
       const result = await service.createEmailIdentity(
         "new@example.com",
@@ -291,9 +310,15 @@ describe("IdentityService", () => {
         "New User",
       );
 
-      expect(result.id).toBe(3);
-      expect(result.email).toBe("new@example.com");
-      expect(result.roles).toEqual(["USER"]);
+      expect(result).toEqual({
+        id: "550e8400-e29b-41d4-a716-446655440602",
+        email: "new@example.com",
+        name: "New User",
+        status: "ACTIVE",
+        avatar: null,
+        roles: ["USER"],
+        internalUserId: 3,
+      });
     });
   });
 
@@ -301,29 +326,22 @@ describe("IdentityService", () => {
     it("should return user identities", async () => {
       const identities = [
         {
-          id: 1,
-          provider: "EMAIL",
+          publicId: "550e8400-e29b-41d4-a716-446655440610",
+          provider: IdentityProvider.EMAIL,
           providerId: "test@example.com",
           verified: true,
-          createdAt: new Date(),
-        },
-        {
-          id: 2,
-          provider: "PHONE",
-          providerId: "13812345678",
-          verified: true,
-          createdAt: new Date(),
+          createdAt: now,
         },
       ];
-      prismaService.userIdentity.findMany.mockResolvedValue(identities);
+      prisma.userIdentity.findMany.mockResolvedValue(identities as never);
 
-      const result = await service.getUserIdentities(1);
+      const result = await service.getUserIdentities(userInternalId);
 
-      expect(result).toHaveLength(2);
-      expect(prismaService.userIdentity.findMany).toHaveBeenCalledWith({
-        where: { userId: 1 },
+      expect(result).toEqual(identities);
+      expect(prisma.userIdentity.findMany).toHaveBeenCalledWith({
+        where: { userId: userInternalId },
         select: {
-          id: true,
+          publicId: true,
           provider: true,
           providerId: true,
           verified: true,
@@ -335,270 +353,176 @@ describe("IdentityService", () => {
 
   describe("isLastIdentity", () => {
     it("should return true when user has only one identity", async () => {
-      prismaService.userIdentity.count.mockResolvedValue(1);
+      prisma.userIdentity.count.mockResolvedValue(1);
 
-      const result = await service.isLastIdentity(1);
-
-      expect(result).toBe(true);
+      await expect(service.isLastIdentity(userInternalId)).resolves.toBe(true);
     });
 
     it("should return false when user has multiple identities", async () => {
-      prismaService.userIdentity.count.mockResolvedValue(2);
+      prisma.userIdentity.count.mockResolvedValue(2);
 
-      const result = await service.isLastIdentity(1);
-
-      expect(result).toBe(false);
+      await expect(service.isLastIdentity(userInternalId)).resolves.toBe(false);
     });
   });
 
   describe("bindEmail", () => {
     it("should bind email successfully", async () => {
-      prismaService.userIdentity.findUnique.mockResolvedValue(null);
-      prismaService.userIdentity.create.mockResolvedValue({} as never);
+      prisma.userIdentity.findUnique.mockResolvedValue(null);
+      prisma.userIdentity.create.mockResolvedValue({} as never);
 
       await expect(
-        service.bindEmail(1, "new@example.com", "Password123"),
+        service.bindEmail(userInternalId, "new@example.com", "Password123"),
       ).resolves.not.toThrow();
-
-      expect(prismaService.userIdentity.create).toHaveBeenCalled();
+      expect(prisma.userIdentity.create).toHaveBeenCalled();
     });
 
     it("should throw AUTH_IDENTITY_ALREADY_BOUND when email belongs to same user", async () => {
-      prismaService.userIdentity.findUnique.mockResolvedValue({
-        ...mockIdentity,
-        userId: 1,
-      });
+      prisma.userIdentity.findUnique.mockResolvedValue({
+        userId: userInternalId,
+      } as never);
 
-      try {
-        await service.bindEmail(1, "test@example.com", "Password123");
-        fail("Expected BusinessException to be thrown");
-      } catch (e) {
-        expect(e).toBeInstanceOf(BusinessException);
-        expect((e as BusinessException).businessCode).toBe(
-          ApiErrorCode.AUTH_IDENTITY_ALREADY_BOUND,
-        );
-      }
+      await expect(
+        service.bindEmail(userInternalId, "test@example.com", "Password123"),
+      ).rejects.toMatchObject({
+        code: ApiErrorCode.AUTH_IDENTITY_ALREADY_BOUND,
+      });
     });
 
     it("should throw AUTH_IDENTITY_ALREADY_BOUND when email belongs to another user", async () => {
-      prismaService.userIdentity.findUnique.mockResolvedValue({
-        ...mockIdentity,
+      prisma.userIdentity.findUnique.mockResolvedValue({
         userId: 999,
-      });
+      } as never);
 
-      try {
-        await service.bindEmail(1, "test@example.com", "Password123");
-        fail("Expected BusinessException to be thrown");
-      } catch (e) {
-        expect(e).toBeInstanceOf(BusinessException);
-        expect((e as BusinessException).businessCode).toBe(
-          ApiErrorCode.AUTH_IDENTITY_ALREADY_BOUND,
-        );
-      }
+      await expect(
+        service.bindEmail(userInternalId, "test@example.com", "Password123"),
+      ).rejects.toMatchObject({
+        code: ApiErrorCode.AUTH_IDENTITY_ALREADY_BOUND,
+      });
     });
   });
 
   describe("bindPhone", () => {
     it("should bind phone successfully", async () => {
-      prismaService.userIdentity.findUnique.mockResolvedValue(null);
-      prismaService.userIdentity.create.mockResolvedValue({} as never);
+      prisma.userIdentity.findUnique.mockResolvedValue(null);
+      prisma.userIdentity.create.mockResolvedValue({} as never);
 
-      await expect(service.bindPhone(1, "13800000000")).resolves.not.toThrow();
-
-      expect(prismaService.userIdentity.create).toHaveBeenCalled();
+      await expect(
+        service.bindPhone(userInternalId, "13800000000"),
+      ).resolves.not.toThrow();
+      expect(prisma.userIdentity.create).toHaveBeenCalled();
     });
 
-    it("should throw AUTH_IDENTITY_ALREADY_BOUND when phone already bound to same user", async () => {
-      prismaService.userIdentity.findUnique.mockResolvedValue({
-        ...mockIdentity,
-        provider: "PHONE",
-        providerId: "13800000000",
-        userId: 1, // same user
+    it("should throw AUTH_IDENTITY_ALREADY_BOUND when phone belongs to same user", async () => {
+      prisma.userIdentity.findUnique.mockResolvedValue({
+        userId: userInternalId,
+      } as never);
+
+      await expect(
+        service.bindPhone(userInternalId, "13800000000"),
+      ).rejects.toMatchObject({
+        code: ApiErrorCode.AUTH_IDENTITY_ALREADY_BOUND,
       });
-
-      try {
-        await service.bindPhone(1, "13800000000");
-        fail("Expected BusinessException to be thrown");
-      } catch (e) {
-        expect(e).toBeInstanceOf(BusinessException);
-        expect((e as BusinessException).businessCode).toBe(
-          ApiErrorCode.AUTH_IDENTITY_ALREADY_BOUND,
-        );
-      }
-    });
-
-    it("should throw AUTH_IDENTITY_ALREADY_BOUND when phone belongs to another user", async () => {
-      prismaService.userIdentity.findUnique.mockResolvedValue({
-        ...mockIdentity,
-        provider: "PHONE",
-        providerId: "13800000000",
-        userId: 999,
-      });
-
-      try {
-        await service.bindPhone(1, "13800000000");
-        fail("Expected BusinessException to be thrown");
-      } catch (e) {
-        expect(e).toBeInstanceOf(BusinessException);
-        expect((e as BusinessException).businessCode).toBe(
-          ApiErrorCode.AUTH_IDENTITY_ALREADY_BOUND,
-        );
-      }
     });
   });
 
   describe("bindWechat", () => {
-    beforeEach(() => {
-      (
-        prismaService.userIdentity as unknown as { findFirst: jest.Mock }
-      ).findFirst = jest.fn();
-    });
-
     it("should bind wechat successfully", async () => {
-      prismaService.userIdentity.findUnique.mockResolvedValue(null);
-      (
-        prismaService.userIdentity as unknown as { findFirst: jest.Mock }
-      ).findFirst.mockResolvedValue(null);
-      prismaService.userIdentity.create.mockResolvedValue({} as never);
+      prisma.userIdentity.findUnique.mockResolvedValue(null);
+      prisma.userIdentity.findFirst.mockResolvedValue(null);
+      prisma.userIdentity.create.mockResolvedValue({} as never);
 
       await expect(
         service.bindWechat(
-          1,
+          userInternalId,
           IdentityProvider.WECHAT_MINI,
           "openid123",
           "unionid123",
         ),
       ).resolves.not.toThrow();
-
-      expect(prismaService.userIdentity.create).toHaveBeenCalled();
+      expect(prisma.userIdentity.create).toHaveBeenCalled();
     });
 
-    it("should throw AUTH_IDENTITY_ALREADY_BOUND when wechat belongs to same user", async () => {
-      prismaService.userIdentity.findUnique.mockResolvedValue({
-        ...mockIdentity,
-        provider: IdentityProvider.WECHAT_MINI,
-        providerId: "openid123",
-        userId: 1,
+    it("should throw AUTH_IDENTITY_ALREADY_BOUND when openId belongs to same user", async () => {
+      prisma.userIdentity.findUnique.mockResolvedValue({
+        userId: userInternalId,
+      } as never);
+
+      await expect(
+        service.bindWechat(
+          userInternalId,
+          IdentityProvider.WECHAT_MINI,
+          "openid123",
+        ),
+      ).rejects.toMatchObject({
+        code: ApiErrorCode.AUTH_IDENTITY_ALREADY_BOUND,
       });
-
-      try {
-        await service.bindWechat(1, IdentityProvider.WECHAT_MINI, "openid123");
-        fail("Expected BusinessException to be thrown");
-      } catch (e) {
-        expect(e).toBeInstanceOf(BusinessException);
-        expect((e as BusinessException).businessCode).toBe(
-          ApiErrorCode.AUTH_IDENTITY_ALREADY_BOUND,
-        );
-      }
     });
 
-    it("should throw AUTH_IDENTITY_ALREADY_BOUND when wechat belongs to another user via OpenID", async () => {
-      prismaService.userIdentity.findUnique.mockResolvedValue({
-        ...mockIdentity,
-        provider: IdentityProvider.WECHAT_MINI,
-        providerId: "openid123",
-        userId: 999, // different user
-      });
-
-      try {
-        await service.bindWechat(1, IdentityProvider.WECHAT_MINI, "openid123");
-        fail("Expected BusinessException to be thrown");
-      } catch (e) {
-        expect(e).toBeInstanceOf(BusinessException);
-        expect((e as BusinessException).businessCode).toBe(
-          ApiErrorCode.AUTH_IDENTITY_ALREADY_BOUND,
-        );
-        expect((e as BusinessException).message).toContain("another account");
-      }
-    });
-
-    it("should throw AUTH_IDENTITY_ALREADY_BOUND when wechat belongs to another user via UnionID", async () => {
-      prismaService.userIdentity.findUnique.mockResolvedValue(null);
-      (
-        prismaService.userIdentity as unknown as { findFirst: jest.Mock }
-      ).findFirst.mockResolvedValue({
-        ...mockIdentity,
+    it("should throw AUTH_IDENTITY_ALREADY_BOUND when unionId belongs to another user", async () => {
+      prisma.userIdentity.findUnique.mockResolvedValue(null);
+      prisma.userIdentity.findFirst.mockResolvedValue({
         userId: 999,
-        unionId: "unionid123",
-      });
+      } as never);
 
-      try {
-        await service.bindWechat(
-          1,
+      await expect(
+        service.bindWechat(
+          userInternalId,
           IdentityProvider.WECHAT_MINI,
           "openid123",
           "unionid123",
-        );
-        fail("Expected BusinessException to be thrown");
-      } catch (e) {
-        expect(e).toBeInstanceOf(BusinessException);
-        expect((e as BusinessException).businessCode).toBe(
-          ApiErrorCode.AUTH_IDENTITY_ALREADY_BOUND,
-        );
-      }
+        ),
+      ).rejects.toMatchObject({
+        code: ApiErrorCode.AUTH_IDENTITY_ALREADY_BOUND,
+      });
     });
   });
 
   describe("unbindIdentity", () => {
-    beforeEach(() => {
-      (
-        prismaService.userIdentity as unknown as { findFirst: jest.Mock }
-      ).findFirst = jest.fn();
-      (prismaService.userIdentity as unknown as { delete: jest.Mock }).delete =
-        jest.fn();
-    });
-
     it("should unbind identity successfully", async () => {
-      (
-        prismaService.userIdentity as unknown as { findFirst: jest.Mock }
-      ).findFirst.mockResolvedValue({
-        id: 1,
-        userId: 1,
-        provider: "EMAIL",
-      });
-      prismaService.userIdentity.count.mockResolvedValue(2);
-      (
-        prismaService.userIdentity as unknown as { delete: jest.Mock }
-      ).delete.mockResolvedValue({});
+      const identityPublicId = "550e8400-e29b-41d4-a716-446655440699";
+      prisma.userIdentity.findFirst.mockResolvedValue({
+        publicId: identityPublicId,
+        userId: userInternalId,
+        provider: IdentityProvider.EMAIL,
+      } as never);
+      prisma.userIdentity.count.mockResolvedValue(2);
+      prisma.userIdentity.delete.mockResolvedValue({} as never);
 
-      await expect(service.unbindIdentity(1, 1)).resolves.not.toThrow();
+      await expect(
+        service.unbindIdentity(userInternalId, identityPublicId),
+      ).resolves.not.toThrow();
+      expect(prisma.userIdentity.delete).toHaveBeenCalledWith({
+        where: { publicId: identityPublicId },
+      });
     });
 
     it("should throw AUTH_IDENTITY_NOT_FOUND when identity does not exist", async () => {
-      (
-        prismaService.userIdentity as unknown as { findFirst: jest.Mock }
-      ).findFirst.mockResolvedValue(null);
+      prisma.userIdentity.findFirst.mockResolvedValue(null);
 
-      try {
-        await service.unbindIdentity(1, 999);
-        fail("Expected BusinessException to be thrown");
-      } catch (e) {
-        expect(e).toBeInstanceOf(BusinessException);
-        expect((e as BusinessException).businessCode).toBe(
-          ApiErrorCode.AUTH_IDENTITY_NOT_FOUND,
-        );
-      }
+      await expect(
+        service.unbindIdentity(
+          userInternalId,
+          "550e8400-e29b-41d4-a716-446655440699",
+        ),
+      ).rejects.toMatchObject({
+        code: ApiErrorCode.AUTH_IDENTITY_NOT_FOUND,
+      });
     });
 
     it("should throw AUTH_IDENTITY_LAST_ONE when trying to unbind last identity", async () => {
-      (
-        prismaService.userIdentity as unknown as { findFirst: jest.Mock }
-      ).findFirst.mockResolvedValue({
-        id: 1,
-        userId: 1,
-        provider: "EMAIL",
-      });
-      prismaService.userIdentity.count.mockResolvedValue(1);
+      const identityPublicId = "550e8400-e29b-41d4-a716-446655440699";
+      prisma.userIdentity.findFirst.mockResolvedValue({
+        publicId: identityPublicId,
+        userId: userInternalId,
+        provider: IdentityProvider.EMAIL,
+      } as never);
+      prisma.userIdentity.count.mockResolvedValue(1);
 
-      try {
-        await service.unbindIdentity(1, 1);
-        fail("Expected BusinessException to be thrown");
-      } catch (e) {
-        expect(e).toBeInstanceOf(BusinessException);
-        expect((e as BusinessException).businessCode).toBe(
-          ApiErrorCode.AUTH_IDENTITY_LAST_ONE,
-        );
-      }
+      await expect(
+        service.unbindIdentity(userInternalId, identityPublicId),
+      ).rejects.toMatchObject({
+        code: ApiErrorCode.AUTH_IDENTITY_LAST_ONE,
+      });
     });
   });
 

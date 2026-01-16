@@ -61,7 +61,7 @@ describe("SmsService", () => {
         fail("Expected BusinessException to be thrown");
       } catch (e) {
         expect(e).toBeInstanceOf(BusinessException);
-        expect((e as BusinessException).businessCode).toBe(
+        expect((e as BusinessException).code).toBe(
           ApiErrorCode.AUTH_PHONE_RATE_LIMITED,
         );
       }
@@ -77,7 +77,7 @@ describe("SmsService", () => {
         fail("Expected BusinessException to be thrown");
       } catch (e) {
         expect(e).toBeInstanceOf(BusinessException);
-        expect((e as BusinessException).businessCode).toBe(
+        expect((e as BusinessException).code).toBe(
           ApiErrorCode.AUTH_PHONE_RATE_LIMITED,
         );
       }
@@ -103,7 +103,7 @@ describe("SmsService", () => {
         fail("Expected BusinessException to be thrown");
       } catch (e) {
         expect(e).toBeInstanceOf(BusinessException);
-        expect((e as BusinessException).businessCode).toBe(
+        expect((e as BusinessException).code).toBe(
           ApiErrorCode.AUTH_PHONE_CODE_EXPIRED,
         );
       }
@@ -117,7 +117,7 @@ describe("SmsService", () => {
         fail("Expected BusinessException to be thrown");
       } catch (e) {
         expect(e).toBeInstanceOf(BusinessException);
-        expect((e as BusinessException).businessCode).toBe(
+        expect((e as BusinessException).code).toBe(
           ApiErrorCode.AUTH_PHONE_CODE_INVALID,
         );
       }

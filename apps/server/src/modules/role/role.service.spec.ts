@@ -11,30 +11,47 @@ describe("RoleService", () => {
   let prismaService: jest.Mocked<PrismaService>;
   let permissionCacheService: jest.Mocked<PermissionCacheService>;
 
+  const now = new Date();
+
+  const rolePublicId = "550e8400-e29b-41d4-a716-446655440100";
+  const roleInternalId = 1;
+
+  const systemRolePublicId = "550e8400-e29b-41d4-a716-446655440101";
+  const systemRoleInternalId = 2;
+
+  const permissionPublicId1 = "550e8400-e29b-41d4-a716-446655440200";
+  const permissionPublicId2 = "550e8400-e29b-41d4-a716-446655440201";
+  const permissionInternalId1 = 11;
+  const permissionInternalId2 = 12;
+
   const mockRole = {
-    id: 1,
+    id: roleInternalId,
+    publicId: rolePublicId,
     code: "CUSTOM_ROLE",
     name: "Custom Role",
     description: "A custom role",
     type: RoleType.CUSTOM,
     isEnabled: true,
-    createdAt: new Date(),
-    updatedAt: new Date(),
+    createdAt: now,
+    updatedAt: now,
     deletedAt: null,
     deletedById: null,
     deleteReason: null,
+    _count: { userRoles: 0, rolePermissions: 0 },
   };
 
   const mockSystemRole = {
     ...mockRole,
-    id: 2,
+    id: systemRoleInternalId,
+    publicId: systemRolePublicId,
     code: "ADMIN",
     name: "Administrator",
     type: RoleType.SYSTEM,
   };
 
   const mockPermission = {
-    id: 1,
+    id: permissionInternalId1,
+    publicId: permissionPublicId1,
     code: "user:read",
     name: "Read Users",
     resource: "user",
@@ -106,14 +123,24 @@ describe("RoleService", () => {
       prismaService.soft.role.findMany.mockResolvedValue(mockRoles);
       prismaService.soft.role.count.mockResolvedValue(1);
 
-      const result = await service.findAll({ page: 1, limit: 10 });
+      const result = await service.findAll({ page: 1, pageSize: 10 });
 
-      expect(result.data).toEqual(mockRoles);
-      expect(result.meta).toEqual({
-        total: 1,
-        page: 1,
-        limit: 10,
-        totalPages: 1,
+      expect(result).toEqual({
+        items: [
+          {
+            id: rolePublicId,
+            code: "CUSTOM_ROLE",
+            name: "Custom Role",
+            description: "A custom role",
+            type: RoleType.CUSTOM,
+            isEnabled: true,
+            createdAt: now,
+            updatedAt: now,
+            userCount: 0,
+            permissionCount: 0,
+          },
+        ],
+        pagination: { total: 1, page: 1, pageSize: 10 },
       });
     });
   });
@@ -122,21 +149,42 @@ describe("RoleService", () => {
     it("should return role with permissions", async () => {
       const roleWithPermissions = {
         ...mockRole,
-        permissions: [{ permission: mockPermission }],
-        _count: { users: 5 },
+        rolePermissions: [{ permission: mockPermission }],
+        _count: { userRoles: 5 },
       };
       prismaService.soft.role.findUnique.mockResolvedValue(roleWithPermissions);
 
-      const result = await service.findOne(1);
+      const result = await service.findOne(rolePublicId);
 
-      expect(result).toEqual(roleWithPermissions);
+      expect(result).toEqual({
+        id: rolePublicId,
+        code: "CUSTOM_ROLE",
+        name: "Custom Role",
+        description: "A custom role",
+        type: RoleType.CUSTOM,
+        isEnabled: true,
+        createdAt: now,
+        updatedAt: now,
+        userCount: 5,
+        permissions: [
+          {
+            id: permissionPublicId1,
+            code: "user:read",
+            name: "Read Users",
+            resource: "user",
+            action: "read",
+            module: "system",
+            isEnabled: true,
+          },
+        ],
+      });
     });
 
     it("should throw ROLE_NOT_FOUND if role does not exist", async () => {
       prismaService.soft.role.findUnique.mockResolvedValue(null);
 
-      await expect(service.findOne(999)).rejects.toMatchObject({
-        businessCode: ApiErrorCode.ROLE_NOT_FOUND,
+      await expect(service.findOne(rolePublicId)).rejects.toMatchObject({
+        code: ApiErrorCode.ROLE_NOT_FOUND,
       });
     });
   });
@@ -144,7 +192,7 @@ describe("RoleService", () => {
   describe("create", () => {
     it("should create a new role", async () => {
       prismaService.role.findUnique.mockResolvedValue(null);
-      prismaService.role.create.mockResolvedValue(mockRole);
+      prismaService.role.create.mockResolvedValue(mockRole as never);
 
       const result = await service.create({
         code: "CUSTOM_ROLE",
@@ -152,7 +200,16 @@ describe("RoleService", () => {
         description: "A custom role",
       });
 
-      expect(result).toEqual(mockRole);
+      expect(result).toEqual({
+        id: rolePublicId,
+        code: "CUSTOM_ROLE",
+        name: "Custom Role",
+        description: "A custom role",
+        type: RoleType.CUSTOM,
+        isEnabled: true,
+        createdAt: now,
+        updatedAt: now,
+      });
       expect(prismaService.role.create).toHaveBeenCalledWith({
         data: {
           code: "CUSTOM_ROLE",
@@ -172,25 +229,27 @@ describe("RoleService", () => {
           name: "Custom Role",
         }),
       ).rejects.toMatchObject({
-        businessCode: ApiErrorCode.CONFLICT,
+        code: ApiErrorCode.CONFLICT,
       });
     });
   });
 
   describe("update", () => {
     it("should update a custom role", async () => {
-      const roleWithPermissions = {
-        ...mockRole,
-        permissions: [],
-        _count: { users: 0 },
-      };
-      prismaService.soft.role.findUnique.mockResolvedValue(roleWithPermissions);
+      prismaService.soft.role.findUnique.mockResolvedValue({
+        id: roleInternalId,
+        publicId: rolePublicId,
+        code: "CUSTOM_ROLE",
+        type: RoleType.CUSTOM,
+      } as never);
       prismaService.role.update.mockResolvedValue({
         ...mockRole,
         name: "Updated Name",
       });
 
-      const result = await service.update(1, { name: "Updated Name" });
+      const result = await service.update(rolePublicId, {
+        name: "Updated Name",
+      });
 
       expect(result.name).toBe("Updated Name");
       expect(permissionCacheService.invalidateRoleCache).toHaveBeenCalledWith(
@@ -199,39 +258,39 @@ describe("RoleService", () => {
     });
 
     it("should throw ROLE_SYSTEM_IMMUTABLE when updating system role", async () => {
-      const systemRoleWithPermissions = {
-        ...mockSystemRole,
-        permissions: [],
-        _count: { users: 0 },
-      };
-      prismaService.soft.role.findUnique.mockResolvedValue(
-        systemRoleWithPermissions,
-      );
+      prismaService.soft.role.findUnique.mockResolvedValue({
+        id: systemRoleInternalId,
+        publicId: systemRolePublicId,
+        code: "ADMIN",
+        type: RoleType.SYSTEM,
+      } as never);
 
       await expect(
-        service.update(2, { name: "New Name" }),
+        service.update(systemRolePublicId, { name: "New Name" }),
       ).rejects.toMatchObject({
-        businessCode: ApiErrorCode.ROLE_SYSTEM_IMMUTABLE,
+        code: ApiErrorCode.ROLE_SYSTEM_IMMUTABLE,
       });
     });
   });
 
   describe("remove", () => {
     it("should soft delete a custom role", async () => {
-      const roleWithPermissions = {
-        ...mockRole,
-        permissions: [],
-        _count: { users: 0 },
-      };
-      prismaService.soft.role.findUnique.mockResolvedValue(roleWithPermissions);
-      prismaService.genericSoftDelete.mockResolvedValue(mockRole);
+      prismaService.soft.role.findUnique.mockResolvedValue({
+        id: roleInternalId,
+        publicId: rolePublicId,
+        code: "CUSTOM_ROLE",
+        type: RoleType.CUSTOM,
+      } as never);
+      prismaService.genericSoftDelete.mockResolvedValue(mockRole as never);
 
-      await service.remove(1);
+      await service.remove(rolePublicId);
 
       expect(prismaService.genericSoftDelete).toHaveBeenCalledWith(
         "Role",
-        1,
-        expect.any(Object),
+        roleInternalId,
+        expect.objectContaining({
+          reason: "Deleted by admin",
+        }),
       );
       expect(permissionCacheService.invalidateRoleCache).toHaveBeenCalledWith(
         "CUSTOM_ROLE",
@@ -239,35 +298,36 @@ describe("RoleService", () => {
     });
 
     it("should throw ROLE_SYSTEM_IMMUTABLE when deleting system role", async () => {
-      const systemRoleWithPermissions = {
-        ...mockSystemRole,
-        permissions: [],
-        _count: { users: 0 },
-      };
-      prismaService.soft.role.findUnique.mockResolvedValue(
-        systemRoleWithPermissions,
-      );
+      prismaService.soft.role.findUnique.mockResolvedValue({
+        id: systemRoleInternalId,
+        publicId: systemRolePublicId,
+        code: "ADMIN",
+        type: RoleType.SYSTEM,
+      } as never);
 
-      await expect(service.remove(2)).rejects.toMatchObject({
-        businessCode: ApiErrorCode.ROLE_SYSTEM_IMMUTABLE,
+      await expect(service.remove(systemRolePublicId)).rejects.toMatchObject({
+        code: ApiErrorCode.ROLE_SYSTEM_IMMUTABLE,
       });
     });
   });
 
   describe("assignPermissions", () => {
     it("should assign permissions to role", async () => {
-      const roleWithPermissions = {
-        ...mockRole,
-        permissions: [],
-        _count: { users: 0 },
-      };
-      prismaService.soft.role.findUnique.mockResolvedValue(roleWithPermissions);
+      prismaService.soft.role.findUnique.mockResolvedValue({
+        id: roleInternalId,
+        publicId: rolePublicId,
+        code: "CUSTOM_ROLE",
+        type: RoleType.CUSTOM,
+      } as never);
       prismaService.permission.findMany.mockResolvedValue([
-        mockPermission,
-        { ...mockPermission, id: 2, code: "user:create" },
+        { id: permissionInternalId1, publicId: permissionPublicId1 },
+        { id: permissionInternalId2, publicId: permissionPublicId2 },
       ]);
 
-      const result = await service.assignPermissions(1, [1, 2]);
+      const result = await service.assignPermissions(rolePublicId, [
+        permissionPublicId1,
+        permissionPublicId2,
+      ]);
 
       expect(result.message).toBe("Permissions assigned successfully");
       expect(permissionCacheService.invalidateRoleCache).toHaveBeenCalledWith(
@@ -276,105 +336,125 @@ describe("RoleService", () => {
     });
 
     it("should throw PERMISSION_NOT_FOUND if some permissions do not exist", async () => {
-      const roleWithPermissions = {
-        ...mockRole,
-        permissions: [],
-        _count: { users: 0 },
-      };
-      prismaService.soft.role.findUnique.mockResolvedValue(roleWithPermissions);
+      prismaService.soft.role.findUnique.mockResolvedValue({
+        id: roleInternalId,
+        publicId: rolePublicId,
+        code: "CUSTOM_ROLE",
+        type: RoleType.CUSTOM,
+      } as never);
       prismaService.permission.findMany.mockResolvedValue([mockPermission]);
 
       await expect(
-        service.assignPermissions(1, [1, 999]),
+        service.assignPermissions(rolePublicId, [
+          permissionPublicId1,
+          "550e8400-e29b-41d4-a716-446655440299",
+        ]),
       ).rejects.toMatchObject({
-        businessCode: ApiErrorCode.PERMISSION_NOT_FOUND,
+        code: ApiErrorCode.PERMISSION_NOT_FOUND,
       });
     });
   });
 
   describe("addPermission", () => {
     it("should add a permission to role", async () => {
-      const roleWithPermissions = {
-        ...mockRole,
-        permissions: [],
-        _count: { users: 0 },
-      };
-      prismaService.soft.role.findUnique.mockResolvedValue(roleWithPermissions);
-      prismaService.permission.findUnique.mockResolvedValue(mockPermission);
+      prismaService.soft.role.findUnique.mockResolvedValue({
+        id: roleInternalId,
+        publicId: rolePublicId,
+        code: "CUSTOM_ROLE",
+        type: RoleType.CUSTOM,
+      } as never);
+      prismaService.permission.findUnique.mockResolvedValue({
+        id: permissionInternalId1,
+      } as never);
       prismaService.rolePermission.findUnique.mockResolvedValue(null);
       prismaService.rolePermission.create.mockResolvedValue({
         id: 1,
-        roleId: 1,
-        permissionId: 1,
+        roleId: roleInternalId,
+        permissionId: permissionInternalId1,
         grantedBy: null,
         grantedAt: new Date(),
       });
 
-      const result = await service.addPermission(1, 1);
+      const result = await service.addPermission(
+        rolePublicId,
+        permissionPublicId1,
+      );
 
       expect(result.message).toBe("Permission added successfully");
     });
 
     it("should throw PERMISSION_ALREADY_ASSIGNED if already assigned", async () => {
-      const roleWithPermissions = {
-        ...mockRole,
-        permissions: [],
-        _count: { users: 0 },
-      };
-      prismaService.soft.role.findUnique.mockResolvedValue(roleWithPermissions);
-      prismaService.permission.findUnique.mockResolvedValue(mockPermission);
+      prismaService.soft.role.findUnique.mockResolvedValue({
+        id: roleInternalId,
+        publicId: rolePublicId,
+        code: "CUSTOM_ROLE",
+        type: RoleType.CUSTOM,
+      } as never);
+      prismaService.permission.findUnique.mockResolvedValue({
+        id: permissionInternalId1,
+      } as never);
       prismaService.rolePermission.findUnique.mockResolvedValue({
         id: 1,
-        roleId: 1,
-        permissionId: 1,
+        roleId: roleInternalId,
+        permissionId: permissionInternalId1,
         grantedBy: null,
         grantedAt: new Date(),
       });
 
-      await expect(service.addPermission(1, 1)).rejects.toMatchObject({
-        businessCode: ApiErrorCode.PERMISSION_ALREADY_ASSIGNED,
+      await expect(
+        service.addPermission(rolePublicId, permissionPublicId1),
+      ).rejects.toMatchObject({
+        code: ApiErrorCode.PERMISSION_ALREADY_ASSIGNED,
       });
     });
 
     it("should throw PERMISSION_NOT_FOUND if permission does not exist", async () => {
-      const roleWithPermissions = {
-        ...mockRole,
-        permissions: [],
-        _count: { users: 0 },
-      };
-      prismaService.soft.role.findUnique.mockResolvedValue(roleWithPermissions);
+      prismaService.soft.role.findUnique.mockResolvedValue({
+        id: roleInternalId,
+        publicId: rolePublicId,
+        code: "CUSTOM_ROLE",
+        type: RoleType.CUSTOM,
+      } as never);
       prismaService.permission.findUnique.mockResolvedValue(null);
 
-      await expect(service.addPermission(1, 999)).rejects.toMatchObject({
-        businessCode: ApiErrorCode.PERMISSION_NOT_FOUND,
+      await expect(
+        service.addPermission(rolePublicId, permissionPublicId1),
+      ).rejects.toMatchObject({
+        code: ApiErrorCode.PERMISSION_NOT_FOUND,
       });
     });
   });
 
   describe("removePermission", () => {
     it("should remove a permission from role", async () => {
-      const roleWithPermissions = {
-        ...mockRole,
-        permissions: [],
-        _count: { users: 0 },
-      };
-      prismaService.soft.role.findUnique.mockResolvedValue(roleWithPermissions);
+      prismaService.soft.role.findUnique.mockResolvedValue({
+        id: roleInternalId,
+        publicId: rolePublicId,
+        code: "CUSTOM_ROLE",
+        type: RoleType.CUSTOM,
+      } as never);
+      prismaService.permission.findUnique.mockResolvedValue({
+        id: permissionInternalId1,
+      } as never);
       prismaService.rolePermission.findUnique.mockResolvedValue({
         id: 1,
-        roleId: 1,
-        permissionId: 1,
+        roleId: roleInternalId,
+        permissionId: permissionInternalId1,
         grantedBy: null,
         grantedAt: new Date(),
       });
       prismaService.rolePermission.delete.mockResolvedValue({
         id: 1,
-        roleId: 1,
-        permissionId: 1,
+        roleId: roleInternalId,
+        permissionId: permissionInternalId1,
         grantedBy: null,
         grantedAt: new Date(),
       });
 
-      const result = await service.removePermission(1, 1);
+      const result = await service.removePermission(
+        rolePublicId,
+        permissionPublicId1,
+      );
 
       expect(result.message).toBe("Permission removed successfully");
       expect(permissionCacheService.invalidateRoleCache).toHaveBeenCalledWith(
@@ -383,16 +463,21 @@ describe("RoleService", () => {
     });
 
     it("should throw PERMISSION_NOT_FOUND if permission not assigned", async () => {
-      const roleWithPermissions = {
-        ...mockRole,
-        permissions: [],
-        _count: { users: 0 },
-      };
-      prismaService.soft.role.findUnique.mockResolvedValue(roleWithPermissions);
+      prismaService.soft.role.findUnique.mockResolvedValue({
+        id: roleInternalId,
+        publicId: rolePublicId,
+        code: "CUSTOM_ROLE",
+        type: RoleType.CUSTOM,
+      } as never);
+      prismaService.permission.findUnique.mockResolvedValue({
+        id: permissionInternalId1,
+      } as never);
       prismaService.rolePermission.findUnique.mockResolvedValue(null);
 
-      await expect(service.removePermission(1, 999)).rejects.toMatchObject({
-        businessCode: ApiErrorCode.PERMISSION_NOT_FOUND,
+      await expect(
+        service.removePermission(rolePublicId, permissionPublicId1),
+      ).rejects.toMatchObject({
+        code: ApiErrorCode.PERMISSION_NOT_FOUND,
       });
     });
   });
@@ -401,50 +486,56 @@ describe("RoleService", () => {
     it("should return role permissions", async () => {
       const roleWithPermissions = {
         ...mockRole,
-        RolePermission: [
+        rolePermissions: [
           {
-            Permission: mockPermission,
+            permission: mockPermission,
           },
         ],
       };
       prismaService.soft.role.findUnique.mockResolvedValue(roleWithPermissions);
 
-      const result = await service.findRolePermissions(1);
+      const result = await service.findRolePermissions(rolePublicId);
 
-      expect(result.data).toEqual([mockPermission]);
-      expect(result.meta).toEqual({
-        total: 1,
-        page: 1,
-        limit: 1,
-        totalPages: 1,
+      expect(result).toEqual({
+        items: [
+          {
+            id: permissionPublicId1,
+            code: "user:read",
+            name: "Read Users",
+            resource: "user",
+            action: "read",
+            module: "system",
+            isEnabled: true,
+          },
+        ],
+        pagination: { total: 1, page: 1, pageSize: 1 },
       });
     });
 
     it("should throw ROLE_NOT_FOUND if role does not exist", async () => {
       prismaService.soft.role.findUnique.mockResolvedValue(null);
 
-      await expect(service.findRolePermissions(999)).rejects.toMatchObject({
-        businessCode: ApiErrorCode.ROLE_NOT_FOUND,
+      await expect(
+        service.findRolePermissions(rolePublicId),
+      ).rejects.toMatchObject({
+        code: ApiErrorCode.ROLE_NOT_FOUND,
       });
     });
 
     it("should return empty array when role has no permissions", async () => {
       const roleWithoutPermissions = {
         ...mockRole,
-        RolePermission: [],
+        rolePermissions: [],
       };
       prismaService.soft.role.findUnique.mockResolvedValue(
         roleWithoutPermissions,
       );
 
-      const result = await service.findRolePermissions(1);
+      const result = await service.findRolePermissions(rolePublicId);
 
-      expect(result.data).toEqual([]);
-      expect(result.meta).toEqual({
-        total: 0,
-        page: 1,
-        limit: 0,
-        totalPages: 1,
+      expect(result).toEqual({
+        items: [],
+        pagination: { total: 0, page: 1, pageSize: 0 },
       });
     });
   });

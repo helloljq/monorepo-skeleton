@@ -1,7 +1,7 @@
 /* eslint-disable no-console */
 /**
  * 检查管理员账户状态脚本（CommonJS 版本，可直接在容器中运行）
- * 
+ *
  * 使用方法：
  *   docker exec xiaoyue-server-staging node scripts/check-admin-account.js
  */
@@ -14,7 +14,8 @@ const prisma = new PrismaClient();
 async function main() {
   console.log("🔍 检查管理员账户状态...\n");
 
-  const email = process.env.DEFAULT_ADMIN_EMAIL || "admin@{{DOMAIN}}";
+  const email =
+    process.env.DEFAULT_ADMIN_EMAIL || "admin@monorepo-skeleton.test";
   const password = process.env.DEFAULT_ADMIN_PASSWORD || "password";
   const emailLower = email.toLowerCase();
 
@@ -45,7 +46,9 @@ async function main() {
       });
       if (allAdmins.length > 0) {
         allAdmins.forEach((u) => {
-          console.log(`      - ID: ${u.id}, Email: ${u.email}, Status: ${u.status}`);
+          console.log(
+            `      - ID: ${u.id}, Email: ${u.email}, Status: ${u.status}`,
+          );
         });
       } else {
         console.log("      (无)");
@@ -57,9 +60,13 @@ async function main() {
       console.log(`      - Name: ${user.name}`);
       console.log(`      - Status: ${user.status}`);
       console.log(`      - DeletedAt: ${user.deletedAt || "null"}`);
-      console.log(`      - 角色数量: ${user.UserRole_UserRole_userIdToUser.length}`);
+      console.log(
+        `      - 角色数量: ${user.UserRole_UserRole_userIdToUser.length}`,
+      );
       user.UserRole_UserRole_userIdToUser.forEach((ur) => {
-        console.log(`         - ${ur.Role.code} (enabled: ${ur.Role.isEnabled})`);
+        console.log(
+          `         - ${ur.Role.code} (enabled: ${ur.Role.isEnabled})`,
+        );
       });
     }
 
@@ -92,7 +99,9 @@ async function main() {
       if (allIdentities.length > 0) {
         allIdentities.forEach((i) => {
           const hasCredential = !!i.credential;
-          console.log(`      - ProviderId: ${i.providerId}, UserId: ${i.userId}, Verified: ${i.verified}, HasCredential: ${hasCredential}`);
+          console.log(
+            `      - ProviderId: ${i.providerId}, UserId: ${i.userId}, Verified: ${i.verified}, HasCredential: ${hasCredential}`,
+          );
         });
       } else {
         console.log("      (无)");
@@ -162,4 +171,3 @@ async function main() {
 }
 
 main();
-
